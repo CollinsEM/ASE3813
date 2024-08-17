@@ -244,6 +244,6 @@ Algebra(3,1,()=>{
       //0x4444AA, T1, "F-(A-F)", T2, "F-(B-F)",       // reflected points
       //0x4444AA, [R1,T1], [R2,T2],
       0x666666, F1, "F", F2, "F'",        // focii
-    ]},{conformal:true,grid:true,animate:true}));                 // conformal flag!  
+    ]},{conformal:true,grid:true,animate:true,width:640,height:480}));                 // conformal flag!  
 
 });
