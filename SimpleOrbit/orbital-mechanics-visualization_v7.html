@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Orbital Mechanics Visualization</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: black; color: white; font-family: Arial, sans-serif; }
+        canvas { display: block; }
+        #controls { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; }
+        .slider-container { margin-bottom: 10px; }
+        input[type="range"] { width: 200px; }
+    </style>
+</head>
+<body>
+    <canvas id="orbitCanvas"></canvas>
+    <div id="controls">
+        <div class="slider-container">
+            <label for="eccentricity">Eccentricity: <span id="eccentricityValue">0.5</span></label>
+            <input type="range" id="eccentricity" min="0" max="0.99" step="0.01" value="0.5">
+        </div>
+        <div class="slider-container">
+            <label for="semiMajorAxis">Semi-major Axis: <span id="semiMajorAxisValue">200</span></label>
+            <input type="range" id="semiMajorAxis" min="100" max="300" step="1" value="200">
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('orbitCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Orbit parameters
+        let a = 200; // Semi-major axis
+        let e = 0.5; // Eccentricity
+        let b, c; // Semi-minor axis and focus distance
+
+        // Time and animation parameters
+        let time = 0;
+        const period = 5; // Orbital period in seconds
+        const dt = 0.016; // Time step (assumes 60 fps)
+
+        // Planet parameters
+        const planetRadius = 10;
+
+        function updateOrbitParameters() {
+            b = a * Math.sqrt(1 - e*e); // Semi-minor axis
+            c = a * e; // Distance from center to focus
+        }
+
+        function drawOrbit() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            ctx.beginPath();
+            ctx.ellipse(centerX - c, centerY, a, b, 0, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.stroke();
+        }
+
+        function drawStar() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = 'yellow';
+            ctx.fill();
+        }
+
+        function drawPlanet(trueAnomaly) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const r = (a * (1 - e*e)) / (1 + e * Math.cos(trueAnomaly));
+            const x = centerX + r * Math.cos(trueAnomaly);
+            const y = centerY + r * Math.sin(trueAnomaly);
+
+            ctx.beginPath();
+            ctx.arc(x, y, planetRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+        }
+
+        function solveKeplersEquation(M, e, tolerance = 1e-8, maxIterations = 30) {
+            let E = M;
+            for (let i = 0; i < maxIterations; i++) {
+                let dE = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+                E -= dE;
+                if (Math.abs(dE) < tolerance) {
+                    return E;
+                }
+            }
+            console.warn('Kepler equation did not converge');
+            return E;
+        }
+
+        function getTrueAnomaly(t) {
+            const M = (2 * Math.PI * t) / period;
+            const E = solveKeplersEquation(M, e);
+            return Math.atan2(Math.sqrt(1 - e*e) * Math.sin(E), Math.cos(E) - e);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            updateOrbitParameters();
+            drawOrbit();
+            drawStar();
+
+            const trueAnomaly = getTrueAnomaly(time);
+            drawPlanet(trueAnomaly);
+
+            time += dt;
+            if (time > period) {
+                time -= period;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Set up sliders
+        const eccentricitySlider = document.getElementById('eccentricity');
+        const eccentricityValue = document.getElementById('eccentricityValue');
+        const semiMajorAxisSlider = document.getElementById('semiMajorAxis');
+        const semiMajorAxisValue = document.getElementById('semiMajorAxisValue');
+
+        eccentricitySlider.addEventListener('input', function() {
+            e = parseFloat(this.value);
+            eccentricityValue.textContent = e.toFixed(2);
+        });
+
+        semiMajorAxisSlider.addEventListener('input', function() {
+            a = parseInt(this.value);
+            semiMajorAxisValue.textContent = a;
+        });
+
+        animate();
+    </script>
+</body>
+</html>

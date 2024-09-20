@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrected Orbital Mechanics Visualization</title>
+    <style type="text/css">
+        body { margin: 0; overflow: hidden; background-color: black; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="orbitCanvas"></canvas>
+    <script type="text/javascript">
+        const canvas = document.getElementById('orbitCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Center of the canvas
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // Orbit parameters
+        const a = 200; // Semi-major axis
+        const e = 0.5; // Eccentricity
+        const b = a * Math.sqrt(1 - e*e); // Semi-minor axis
+        const c = a * e; // Distance from center to focus
+
+        // Time and animation parameters
+        let time = 0;
+        const period = 5; // Orbital period in seconds
+        const dt = 0.016; // Time step (assumes 60 fps)
+
+        // Planet parameters
+        const planetRadius = 10;
+
+        function drawOrbit() {
+            ctx.beginPath();
+            ctx.ellipse(centerX - c, centerY, a, b, 0, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.stroke();
+        }
+
+        function drawStar() {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = 'yellow';
+            ctx.fill();
+        }
+
+        function drawPlanet(trueAnomaly) {
+            const r = (a * (1 - e*e)) / (1 + e * Math.cos(trueAnomaly));
+            const x = centerX + r * Math.cos(trueAnomaly);
+            const y = centerY + r * Math.sin(trueAnomaly);
+
+            ctx.beginPath();
+            ctx.arc(x, y, planetRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+        }
+
+        function solveKeplersEquation(M) {
+            let E = M;
+            for (let i = 0; i < 10; i++) {
+                E = M + e * Math.sin(E);
+            }
+            return E;
+        }
+
+        function getTrueAnomaly(t) {
+            const M = (2 * Math.PI * t) / period;
+            const E = solveKeplersEquation(M);
+            const cosV = (Math.cos(E) - e) / (1 - e * Math.cos(E));
+            const sinV = (Math.sqrt(1 - e*e) * Math.sin(E)) / (1 - e * Math.cos(E));
+            return Math.atan2(sinV, cosV);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawOrbit();
+            drawStar();
+
+            const trueAnomaly = getTrueAnomaly(time);
+            drawPlanet(trueAnomaly);
+
+            time += dt;
+            if (time > period) {
+                time -= period;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
