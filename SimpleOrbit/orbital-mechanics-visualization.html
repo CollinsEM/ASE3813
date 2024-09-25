@@ -15,14 +15,27 @@
   <body>
     <canvas id="orbitCanvas"></canvas>
     <div id="controls">
-      <div class="slider-container">
-        <label for="eccentricity">Eccentricity: <span id="eccentricityValue">0.5</span></label>
-        <input type="range" id="eccentricity" min="0" max="0.99" step="0.01" value="0.5">
-      </div>
-      <div class="slider-container">
-        <label for="semiMajorAxis">Semi-major Axis: <span id="semiMajorAxisValue">200</span></label>
-        <input type="range" id="semiMajorAxis" min="10" max="1000" step="1" value="200">
-      </div>
+      <table>
+        <tr class="slider-container">
+          <td><label for="gravParam">Gravitational Parameter:</label></td>
+          <td><span id="gravParamValue">200000</span></td>
+          <td><input type="range" id="gravParam" min="100000" max="500000" step="100" value="200000"></td>
+        </tr>
+        <tr class="slider-container">
+          <td><label for="eccentricity">Eccentricity:</label></td>
+          <td><span id="eccentricityValue">0.5</span></td>
+          <td><input type="range" id="eccentricity" min="0" max="0.99" step="0.01" value="0.5"></td>
+        </tr>
+        <tr class="slider-container">
+          <td><label for="semiMajorAxis">Semi-major Axis:</label></td>
+          <td><span id="semiMajorAxisValue">200</span></td>
+          <td><input type="range" id="semiMajorAxis" min="10" max="1000" step="1" value="200"></td>
+        </tr>
+        <tr class "slider-container">
+          <td>Period:</td>
+          <td id="periodValue">5</td>
+        </tr>
+      </table>
     </div>
     <script type="text/javascript">
      const canvas = document.getElementById('orbitCanvas');
@@ -36,18 +49,50 @@
      resizeCanvas();
      window.addEventListener('resize', resizeCanvas);
      
-     // Orbit parameters
-     let a = 200; // Semi-major axis
-     let e = 0.5; // Eccentricity
-     let b, c; // Semi-minor axis and focus distance
-     
      // Time and animation parameters
      let time = 0;
-     const period = 5; // Orbital period in seconds
      const dt = 0.016; // Time step (assumes 60 fps)
      
      // Planet parameters
+     const starRadius = 20;
      const planetRadius = 10;
+     
+     // Orbit parameters
+     let a = 200; // Semi-major axis
+     let e = 0.5; // Eccentricity
+     let mu = 200000; // Gravitational parameter
+     let b, c; // Semi-minor axis and focus distance
+     
+     // Set up sliders
+     const periodValue = document.getElementById('periodValue');
+     const gravParamSlider = document.getElementById('gravParam');
+     const gravParamValue = document.getElementById('gravParamValue');
+     const eccentricitySlider = document.getElementById('eccentricity');
+     const eccentricityValue = document.getElementById('eccentricityValue');
+     const semiMajorAxisSlider = document.getElementById('semiMajorAxis');
+     const semiMajorAxisValue = document.getElementById('semiMajorAxisValue');
+     
+     let period = 2*Math.PI*Math.sqrt(a*a*a/mu); // Orbital period in seconds
+     periodValue.textContent = period.toFixed(2);
+     
+     gravParamSlider.addEventListener('input', function() {
+       mu = parseFloat(this.value);
+       gravParamValue.textContent = mu.toFixed(0);
+       period = 2*Math.PI*Math.sqrt(a*a*a/mu);
+       periodValue.textContent = period.toFixed(2);
+     });
+     
+     eccentricitySlider.addEventListener('input', function() {
+       e = parseFloat(this.value);
+       eccentricityValue.textContent = e.toFixed(2);
+     });
+     
+     semiMajorAxisSlider.addEventListener('input', function() {
+       a = parseInt(this.value);
+       semiMajorAxisValue.textContent = a;
+       period = 2*Math.PI*Math.sqrt(a*a*a/mu);
+       periodValue.textContent = period.toFixed(2);
+     });
      
      function updateOrbitParameters() {
        b = a * Math.sqrt(1 - e*e); // Semi-minor axis
@@ -61,9 +106,16 @@
        ctx.stroke();
      }
      
+     function drawTrajectory(starX, starY) {
+       ctx.beginPath();
+       ctx.hyperbola(starX - c, starY, a, b, 0, 0, 2 * Math.PI);
+       ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+       ctx.stroke();
+     }
+     
      function drawStar(starX, starY) {
        ctx.beginPath();
-       ctx.arc(starX, starY, 10, 0, 2 * Math.PI);
+       ctx.arc(starX, starY, starRadius, 0, 2 * Math.PI);
        ctx.fillStyle = 'yellow';
        ctx.fill();
      }
@@ -118,22 +170,6 @@
        
        requestAnimationFrame(animate);
      }
-     
-     // Set up sliders
-     const eccentricitySlider = document.getElementById('eccentricity');
-     const eccentricityValue = document.getElementById('eccentricityValue');
-     const semiMajorAxisSlider = document.getElementById('semiMajorAxis');
-     const semiMajorAxisValue = document.getElementById('semiMajorAxisValue');
-     
-     eccentricitySlider.addEventListener('input', function() {
-       e = parseFloat(this.value);
-       eccentricityValue.textContent = e.toFixed(2);
-     });
-     
-     semiMajorAxisSlider.addEventListener('input', function() {
-       a = parseInt(this.value);
-       semiMajorAxisValue.textContent = a;
-     });
      
      animate();
     </script>
