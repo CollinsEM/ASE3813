@@ -128,7 +128,7 @@ Algebra(2,0,1,()=>{
     var orbitPts = [...Array(N)].map((x,i)=>()=>Ellipse(F1, a, e, 2*Math.PI*i/N), p, q);
     var orbitCrv = curve(orbitPts);             // Ellipse computed using the orbit eqn.
 
-    var t   = performance.now()%T;              // current time
+    var t   = 0.25*performance.now()%T;              // current time
     var M   = n*t;                              // Mean anomaly
     var E   = eccentricAnomaly(M, e);           // Eccentric anomaly
     var theta = trueAnomaly(t, T, e);           // True anomaly
