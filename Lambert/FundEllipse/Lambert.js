@@ -1,12 +1,12 @@
 // quick 2D PGA test.
 Algebra(2,0,1,()=>{
-  const params = {
-    phi: 0
-  };
-  const GUI = lil.GUI;
-  const gui = new GUI();
-  gui.add( document, 'title' );
-  gui.add( params, 'phi' );
+  // const params = {
+  //   phi: 0
+  // };
+  // const GUI = lil.GUI;
+  // const gui = new GUI();
+  // gui.add( document, 'title' );
+  // gui.add( params, 'phi' );
 
   // Using Geometric/Clifford algebra with signature (2,0,1), based on the work of Charles Gunn
   const point   = (x,y)=>!(1e0 + x*1e1 + y*1e2);
