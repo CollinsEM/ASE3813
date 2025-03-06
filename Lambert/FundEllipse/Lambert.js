@@ -15,7 +15,8 @@ Algebra(2,0,1,()=>{
   const refl    = (l,m)=>(l.Normalized<<m.Normalized)*2*(m.Normalized)-l.Normalized;
   const project = (a,b)=>(a | b) / b;
   const reject  = (a,b)=>(a | b);
-
+  const lerp    = (a,b,t)=>(1-t)*a + t*b;
+  
   var toString = (v,n)=>v.toPrecision(n||1).toString();
 
   // Compute all anomaly types
@@ -114,25 +115,31 @@ Algebra(2,0,1,()=>{
   var N=120, Nc=60;
   const mu = 1;
   
-  // Origin (center of the ellipse
-  // const O   = point(0, 0);
   // Random orbit parameters (for initialization)
   const rp  = 0.5 + 0.5*Math.random();
-  const ra  = rp + Math.random();
+  const ra  = rp + 1.5*Math.random();
   const e0  = (ra - rp)/(ra + rp);
   const a0  = 0.5*(ra + rp);
   const h0  = Math.sqrt(mu*a0*(1-e0*e0));
   // Generate two random points on the above orbit (for initialization)
-  const th1 = 2*Math.PI*Math.random();
-  const th2 = 2*Math.PI*Math.random();
-  const r1_ = a0*(1-e0*e0)/(1 + e0*Math.cos(th1));
-  const r2_ = a0*(1-e0*e0)/(1 + e0*Math.cos(th2));
-  // Initial location of the primary focus
+  const t1_ = 2*Math.PI*Math.random();
+  const t2_ = 2*Math.PI*Math.random();
+  const r1_ = a0*(1-e0*e0)/(1 + e0*Math.cos(t1_));
+  const r2_ = a0*(1-e0*e0)/(1 + e0*Math.cos(t2_));
+  
+  // NOTE: The following points can be modified by dragging them
+  // around the screen.
+  
+  // Initial location of the primary focus (draggable)
   // const F0  = O + vector(a0*e0, 0)
   const F1  = point(a0*e0, 0)
-  const R1  = F1 + vector(r1_*Math.cos(th1), r1_*Math.sin(th1));
-  const R2  = F1 + vector(r2_*Math.cos(th2), r2_*Math.sin(th2));
-  
+  // Initial locations of the two observations (draggable)
+  const R1  = F1 + vector(r1_*Math.cos(t1_), r1_*Math.sin(t1_));
+  const R2  = F1 + vector(r2_*Math.cos(t2_), r2_*Math.sin(t2_));
+
+  // NOTE: All values inside of the following lambda will be
+  // recomputed whenever any of the above points are modified by the
+  // user.
   document.body.appendChild(this.graph(() => {
     // Invariants (for a given R1 and R2)
     const r1  = dist(F1, R1);
@@ -142,7 +149,7 @@ Algebra(2,0,1,()=>{
     const af  = (r1 + r2)/2;          // semi-major axis length
     const ef  = Math.abs(r1 - r2)/c;  // eccentricity
     const Pf  = (r1 < r2 ? (R1 - R2)/c : (R2 - R1)/c).Normalized; // perifocal unit vector (p)
-    const O   = F1 - af*ef*Pf;        // primary focus location
+    const O   = F1 - af*ef*Pf;        // ellipse origin location
     const F2  = O  - af*ef*Pf;        // secondary focus location
     //const O   = (F1 + F2).Normalized; // center of the orbital ellipse
     const Ef  = ef*Pf;                // eccentricity vector
@@ -185,11 +192,13 @@ Algebra(2,0,1,()=>{
       0x44AA44,
       R1, 'R1',
       R2, 'R2',
-      0x88AA88,
+      0x448844,
       [F1,R1], 'r1',
       [F1,R2], 'r2',
-      0x88AA88,
       [R1,R2], 'c',
+      0xAAAAAA,
+      [F2,R1],// 'r1',
+      [F2,R2],// 'r2',
       0x888844,
       [F1,F1+0.25*Pf], 'p',
       [F1,F1+0.25*Qf], 'q',
