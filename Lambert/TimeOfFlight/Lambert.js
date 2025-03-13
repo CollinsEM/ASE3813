@@ -165,54 +165,43 @@ Algebra(2,0,1,()=>{
       // Minimum eccentricity orbit
       this.eMin = this.addFolder('Minimum Eccentricity Orbit');
       this.eMin.show = true;
-      this.eMin.a = 0;
-      this.eMin.e = 0;
       this.eMin.add(this.eMin, 'show').listen()
         .onChange(()=>{ controls.eMinUpdate(); });
-      this.eMin.add(this.eMin, 'e').listen();
+      this.eMin.a = 0;
       this.eMin.add(this.eMin, 'a').listen();
+      this.eMin.e = 0;
+      this.eMin.add(this.eMin, 'e').listen();
       this.eMinUpdate();
       
       // Minimum energy orbit
       this.aMin = this.addFolder('Minimum Energy Orbit');
       this.aMin.show = true;
-      this.aMin.a = 0;
-      this.aMin.e = 0;
       this.aMin.add(this.aMin, 'show').listen()
         .onChange(()=>{ controls.aMinUpdate(); });
+      this.aMin.a = 0;
       this.aMin.add(this.aMin, 'a').listen();
+      this.aMin.e = 0;
       this.aMin.add(this.aMin, 'e').listen();
       this.aMinUpdate();
       
-      // Time specified orbit
-      const ep = this.eMin.e;
-      const phiMin = Math.ceil(-Math.atan(Math.sqrt(1-ep*ep)/ep)*180/Math.PI);
-      const phiMax = Math.floor(Math.atan(Math.sqrt(1-ep*ep)/ep)*180/Math.PI);
-      this.time = this.addFolder('Current Orbit');
-      this.time.show = true;
-      this.time.phi = 0;
-      this.time.a = this.eMin.a;
-      this.time.e = this.eMin.e;
-      this.time.add(this.time, 'show').listen()
-        .onChange(()=>{ controls.timeUpdate(); });
-      this.phiCurr = this.time.add(this.time, 'phi', phiMin, phiMax, 1).listen();
-      this.time.add(this.time, 'a').listen();
-      this.time.add(this.time, 'e').listen();
-      this.timeUpdate();
-      
-      // Currently displayed orbit
-      const ep = this.eMin.e;
-      const phiMin = Math.ceil(-Math.atan(Math.sqrt(1-ep*ep)/ep)*180/Math.PI);
-      const phiMax = Math.floor(Math.atan(Math.sqrt(1-ep*ep)/ep)*180/Math.PI);
-      this.curr = this.addFolder('Current Orbit');
-      this.curr.show = true;
-      this.curr.phi = 0;
-      this.curr.a = this.eMin.a;
-      this.curr.e = this.eMin.e;
+      // Currently displayed orbit (initialized to eMin)
+      const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
+      const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
+      // Bound phi so that eccentricity remains less than one (elliptic)
+      const e         = this.eMin.e;
+      const phiMin    = Math.ceil(-Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      const phiMax    = Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      this.curr       = this.addFolder('Current Orbit');
+      this.curr.show  = true;
       this.curr.add(this.curr, 'show').listen()
         .onChange(()=>{ controls.currUpdate(); });
-      this.phiCurr = this.curr.add(this.curr, 'phi', phiMin, phiMax, 1).listen();
+      this.curr.dt    = this.eMin.dt;
+      this.dtSlider   = this.curr.add(this.curr, 'dt', dtMin, dtMax, 1).listen();
+      this.curr.phi   = 0.0;
+      this.phiSlider  = this.curr.add(this.curr, 'phi', phiMin, phiMax, 1).listen();
+      this.curr.a     = this.eMin.a;
       this.curr.add(this.curr, 'a').listen();
+      this.curr.e     = this.eMin.e;
       this.curr.add(this.curr, 'e').listen();
       this.currUpdate();
     }
@@ -360,54 +349,6 @@ Algebra(2,0,1,()=>{
       if (this.curr.show) {
         // const K = new Kepler(e);
         this.curr.orbit= [...Array(N)].map((x,i)=>()=> {
-          // ... with uniform mean anomaly
-          // const M = 2*Math.PI*i/N;
-          // const E = K.solve(M);
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform eccentric anomaly
-          // const E = 2*Math.PI*i/N;
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform true anomaly
-          const th = 2*Math.PI*i/N;
-          return Ellipse(F1, a, e, th, P, Q)
-        });
-      }
-    }
-    timeUpdate() {
-      const r1  = this.r1;
-      const r2  = this.r2;
-      const r12 = this.r12;
-      const dt  = this.time.dt;
-      // Apse line rotation from fundamental ellipse
-      const phi = this.time.phi;
-      // Eccentricity
-      const ep  = this.eMin.e;
-      const eq  = ep*Math.tan(phi*Math.PI/180);
-      const e   = this.time.e = Math.sqrt(ep*ep + eq*eq);
-      // Eccentricity vector
-      const eVec= this.time.eVec  = ep*this.eMin.pVec + eq*this.eMin.qVec;
-      // Semi-major axis length
-      const a   = this.time.a = (r1 + dot((R1-F1),eVec))/(1-e*e);
-      // const a   = this.time.a = Math.max(this.aMin.a, this.time.a);
-      // Primary axis direction
-      const P   = this.time.pVec  = (eVec/e).Normalized;
-      // Secondary axis direction for the current orbit
-      const Q   = this.time.qVec  = P*1e12;
-      // Secondary focus location
-      const F2  = this.time.F2    = F1 - 2*a*e*P;
-      // Ellipse origin location
-      const O   = this.time.O     = (F1 + F2).Normalized;
-      // Semi-parameter
-      const q   = this.time.q     = a*(1-e*e);
-      const th1   = Math.acos(dot((R1-F1),eVec)/(r1*e));
-      const th2   = Math.acos(dot((R2-F1),eVec)/(r2*e));
-      const E1    = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th1/2));
-      const E2    = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th2/2));
-      // console.log(phi, th1, th2, E1, E2);
-      // Generate orbit ellipse...
-      if (this.time.show) {
-        // const K = new Kepler(e);
-        this.time.orbit= [...Array(N)].map((x,i)=>()=> {
           // ... with uniform mean anomaly
           // const M = 2*Math.PI*i/N;
           // const E = K.solve(M);
