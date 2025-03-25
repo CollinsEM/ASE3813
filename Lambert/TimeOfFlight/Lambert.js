@@ -12,91 +12,7 @@ Algebra(2,0,1,()=>{
   const reject  = (a,b)=>(a | b);
   const lerp    = (a,b,t)=>(1-t)*a + t*b;
 
-  var toString = (v,n)=>v.toPrecision(n||1).toString();
-  
-  // Compute all anomaly types
-  class Anomaly {
-    constructor(obj) {
-      const maxIter=10;
-      if (obj.M !== undefined && obj.e !== undefined) {
-        const M = this.M = obj.M;
-        const e = this.e = obj.e;
-        var E = (M<Math.PI ? M + e/2 : M - e/2);
-        for (let i=0; i<maxIter; ++i) {
-          var f = E - e*Math.sin(E) - M;
-          var df = 1 - e*Math.cos(E);
-          var de = f/df;
-          if (Math.abs(de) < 0.0001) {
-            this.nitr = i;
-            this.E = E;
-            const theta = 2*Math.atan(Math.sqrt((1+e)/(1-e))*Math.tan(E/2));
-            this.theta = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-            console.log(theta, this.theta);
-            break;
-          }
-          E -= de;
-        }
-      }
-      else if (obj.E !== undefined && obj.e !== undefined) {
-        const E = this.E = obj.E;
-        const e = this.e = obj.e;
-        this.M = E - e*Math.sin(E);
-        const theta = 2*Math.atan(Math.sqrt((1+e)/(1-e))*Math.tan(E/2));
-        this.theta = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-        console.log(theta, this.theta);
-      }
-      else if (obj.theta !== undefined && obj.e !== undefined) {
-        const theta = this.theta = obj.theta;
-        const e = this.e = obj.e;
-        const E = this.E = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(theta/2));
-        this.M = E - e*Math.sin(E);
-      }
-    }
-  };
-  
-  // Compute eccentric anomaly from mean anomaly and eccentricity
-  const maxIter = 10;
-  const tol = 1e-4;
-  class Kepler {
-    constructor(e) {
-      this.e = e;
-    }
-    solve(M) {
-      var E = (M<Math.PI ? M + this.e/2 : M - this.e/2);
-      var dE = 1000;
-      for (let i=0; i<maxIter && Math.abs(dE)>tol; ++i) {
-        var f = E - this.e*Math.sin(E) - M;
-        var df = 1 - this.e*Math.cos(E);
-        dE = f/df;
-        E -= dE;
-      }
-      if (Math.abs(dE) > tol) console.log(E, dE);
-      return E;
-    }
-  };
-  
-  // Compute true anomaly from time, period, and eccentricity
-  var trueAnomaly = (t,T,ecc) => {
-    const MA = 2*Math.PI*t/T;
-    const EA = solveKeplersEq(MA,ecc);
-    return Math.atan2(Math.sin(EA)*Math.sqrt(1-ecc*ecc),Math.cos(EA)-ecc);
-  }
-  
-  // Compute true anomaly from mean anomaly and eccentricity
-  var trueAnomalyFromMean = (MA,ecc) => {
-    const EA = solveKeplersEq(MA,ecc);
-    return Math.atan(Math.sqrt((1+ecc)/(1-ecc))*Math.tan(EA/2));
-  }
-  
-  // Compute true anomaly from eccentric anomaly and eccentricity
-  var trueAnomalyFromEccentric = (EA,ecc) => {
-    return Math.atan(Math.sqrt((1+ecc)/(1-ecc))*Math.tan(EA/2));
-  }
-  
-  // Compute eccentric anomaly from true anomaly and eccentricity
-  var eccentricAnomalyFromTrue = (theta,ecc) => {
-    return Math.atan(Math.sqrt((1-ecc)/(1+ecc))*Math.tan(theta/2));
-  }
+  const toString= (v,n)=>v.toPrecision(n||1).toString();
   
   // Compute the location of a point on an ellipse
   // F0: primary focus location
@@ -105,10 +21,10 @@ Algebra(2,0,1,()=>{
   // t: true anomaly
   // p: semi-major axis
   // q: semi-parameter axis
-  const Ellipse = (F0, a, e, t, P, Q)=>{
-    var r = a*(1-e*e)/(1+e*Math.cos(t));
-    return F0 + r*Math.cos(t)*P + r*Math.sin(t)*Q;
-  }
+  // const Ellipse = (F0, a, e, t, P, Q)=>{
+  //   var r = a*(1-e*e)/(1+e*Math.cos(t));
+  //   return F0 + r*Math.cos(t)*P + r*Math.sin(t)*Q;
+  // }
   
   // Computes the location of a point on a circle of radius, r, centered at R0
   var Circle=(R0,r,theta)=>{
@@ -120,8 +36,9 @@ Algebra(2,0,1,()=>{
   //var OpenCurve=(pts)=>pts.map((pt,i,arr)=>[(i?pts[i-1]:pt), pt]);
 
   var N=360, Nc=360;
+  // Planet constants
   const mu = 1;
-  
+  const planet_radius = 0.1;
   // Random orbit parameters (for initialization)
   const rp  = 0.5 + 0.5*Math.random();
   const ra  = rp + 1.5*Math.random();
@@ -187,7 +104,7 @@ Algebra(2,0,1,()=>{
       const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
       // Bound phi so that eccentricity remains less than one (elliptic)
       const e         = this.eMin.e;
-      const phiMin    = Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      const phiMin    = -89;//Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
       const phiMax    =  89;//Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
       this.curr       = this.addFolder('Current Orbit');
       this.curr.show  = true;
@@ -208,6 +125,7 @@ Algebra(2,0,1,()=>{
       const r1  = this.r1  = dist(F1, R1);
       const r2  = this.r2  = dist(F1, R2);
       const r12 = this.r12 = dist(R1, R2);
+      this.Planet = [...Array(Nc)].map((x,i)=>()=>Circle(F1, planet_radius, 2*Math.PI*i/Nc));
     }
     drawOrbit(obj) {
       // const K = new Kepler(e);
@@ -221,7 +139,9 @@ Algebra(2,0,1,()=>{
         // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
         // ... with uniform true anomaly
         const th = 2*Math.PI*i/N;
-        return Ellipse(F1, obj.a, obj.e, th, obj.pVec, obj.qVec);
+        var r = obj.q/(1+obj.e*Math.cos(th));
+        return F1 + r*Math.cos(th)*obj.pVec + r*Math.sin(th)*obj.qVec;
+        // return Ellipse(F1, obj.a, obj.e, th, obj.pVec, obj.qVec);
       });
     }
     //---------------------------
@@ -234,12 +154,12 @@ Algebra(2,0,1,()=>{
       // Eccentricity
       const e   = this.eMin.e = Math.abs(r1 - r2)/r12;
       // Update the minimum value for the eccentricity slider on the current orbit
-      if (this.phiCurr) {
-        const phiMin = Math.ceil(-Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
-        const phiMax = Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
-        this.phiCurr.min(phiMin).max(phiMax);
-        this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
-      }
+      // if (this.phiCurr) {
+      //   const phiMin = Math.ceil(-Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      //   const phiMax = Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      //   this.phiCurr.min(phiMin).max(phiMax);
+      //   this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
+      // }
       // Semi-major axis length
       const a   = this.eMin.a = (r1 + r2)/2;
       // The semi-major axis for the fundamental orbit is parallel to
@@ -313,10 +233,10 @@ Algebra(2,0,1,()=>{
       const eq  = ep*Math.tan(phi*Math.PI/180);
       const e   = this.curr.e = Math.sqrt(ep*ep + eq*eq);
       // Bound phi so that eccentricity remains less than one (elliptic)
-      const phiMin = Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
-      const phiMax = Math.floor(Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
-      this.phiSlider.min(phiMin).max(phiMax);
-      this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
+      // const phiMin = Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      // const phiMax = Math.floor(Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      // this.phiSlider.min(phiMin).max(phiMax);
+      // this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
       // Range of dt values between the eMin and aMin orbits
       const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
       const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
@@ -339,25 +259,31 @@ Algebra(2,0,1,()=>{
       const h   = Math.sqrt(mu*q);
       const th1   = Math.acos(dot((R1-F1),eVec)/(r1*e));
       const th2   = Math.acos(dot((R2-F1),eVec)/(r2*e));
-      if (e < 1) {
-        const E1  = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th1/2));
-        const E2  = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th2/2));
-        
-        const M1  = E1 - e*Math.sin(E1);
-        const M2  = E2 - e*Math.sin(E2);
-        const dt  = this.curr.dt = Math.sqrt(a*a*a/mu)*(M2 - M1);
+      if (a*(1-e) < planet_radius) {
+        this.curr.dtString = "INVALID";
       }
-      else if (e == 1) {
-        const M1  = Math.tan(th1/2)/2 + Math.pow(Math.tan(th1/2),3)/6;
-        const M2  = Math.tan(th2/2)/2 + Math.pow(Math.tan(th2/2),3)/6;
-        const dt  = this.curr.dt = (q*q/h)*(M2 - M1);
-      }
-      else if (e > 1) {
-        const F1  = 2*Math.atanh(Math.sqrt((e-1)/(e+1))*Math.tan(th1/2));
-        const F2  = 2*Math.atanh(Math.sqrt((e-1)/(e+1))*Math.tan(th2/2));
-        const M1  = e*Math.sinh(F1) - F1;
-        const M2  = e*Math.sinh(F2) - F2;
-        const dt  = this.curr.dt = Math.sqrt(-a*a*a/mu)*(M2 - M1);
+      else {
+        if (e < 1) {
+          const E1  = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th1/2));
+          const E2  = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th2/2));
+          
+          const M1  = E1 - e*Math.sin(E1);
+          const M2  = E2 - e*Math.sin(E2);
+          const dt  = this.curr.dt = Math.sqrt(a*a*a/mu)*(M2 - M1);
+        }
+        else if (e == 1) {
+          const M1  = Math.tan(th1/2)/2 + Math.pow(Math.tan(th1/2),3)/6;
+          const M2  = Math.tan(th2/2)/2 + Math.pow(Math.tan(th2/2),3)/6;
+          const dt  = this.curr.dt = (q*q/h)*(M2 - M1);
+        }
+        else if (e > 1) {
+          const F1  = 2*Math.atanh(Math.sqrt((e-1)/(e+1))*Math.tan(th1/2));
+          const F2  = 2*Math.atanh(Math.sqrt((e-1)/(e+1))*Math.tan(th2/2));
+          const M1  = e*Math.sinh(F1) - F1;
+          const M2  = e*Math.sinh(F2) - F2;
+          const dt  = this.curr.dt = Math.sqrt(-a*a*a/mu)*(M2 - M1);
+        }
+        this.curr.dtString = this.curr.dt.toFixed(3);
       }
       // Generate orbit ellipse...
       if (this.curr.show) this.drawOrbit(this.curr);
@@ -373,10 +299,11 @@ Algebra(2,0,1,()=>{
       graph.push('r12: ' + this.r12.toFixed(3));
       graph.push(0xAA0000, 'a: '  + this.eMin.a.toFixed(3) + ', e: '  + this.eMin.e.toFixed(3) + ', dt: ' + this.eMin.dt.toFixed(3));
       graph.push(0x00AA00, 'a: '  + this.aMin.a.toFixed(3) + ', e: '  + this.aMin.e.toFixed(3) + ', dt: ' + this.aMin.dt.toFixed(3));
-      graph.push(0x0000AA, 'a: '  + this.curr.a.toFixed(3) + ', e: '  + this.curr.e.toFixed(3) + ', dt: ' + this.curr.dt.toFixed(3));
+      graph.push(0x0000AA, 'a: '  + this.curr.a.toFixed(3) + ', e: '  + this.curr.e.toFixed(3) + ', dt: ' + this.curr.dtString);
       graph.push(0x000000, F1, 'F1');
       graph.push(0x444444, R1, 'R1');
       graph.push(0x444444, R2, 'R2');
+      graph.push(0xAA0000, ...curve(this.Planet)),
       graph.push(0xAAAAAA, R1&R2);
       graph.push(0xAAAAAA, R1&R2|(F1+this.eMin.eVec));
       if (this.eMin.show) {

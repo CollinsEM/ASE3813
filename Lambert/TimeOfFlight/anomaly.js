@@ -38,3 +38,26 @@ class Anomaly {
   }
 };
 
+  // Compute true anomaly from time, period, and eccentricity
+  var trueAnomaly = (t,T,ecc) => {
+    const MA = 2*Math.PI*t/T;
+    const EA = solveKeplersEq(MA,ecc);
+    return Math.atan2(Math.sin(EA)*Math.sqrt(1-ecc*ecc),Math.cos(EA)-ecc);
+  }
+  
+  // Compute true anomaly from mean anomaly and eccentricity
+  var trueAnomalyFromMean = (MA,ecc) => {
+    const EA = solveKeplersEq(MA,ecc);
+    return Math.atan(Math.sqrt((1+ecc)/(1-ecc))*Math.tan(EA/2));
+  }
+  
+  // Compute true anomaly from eccentric anomaly and eccentricity
+  var trueAnomalyFromEccentric = (EA,ecc) => {
+    return Math.atan(Math.sqrt((1+ecc)/(1-ecc))*Math.tan(EA/2));
+  }
+  
+  // Compute eccentric anomaly from true anomaly and eccentricity
+  var eccentricAnomalyFromTrue = (theta,ecc) => {
+    return Math.atan(Math.sqrt((1-ecc)/(1+ecc))*Math.tan(theta/2));
+  }
+  
