@@ -1,29 +1,9 @@
-// quick 2D PGA test.
-Algebra(2,0,1,()=>{
-  // const params = {
-  //   orbit: true,
-  //   origin: false,
-  //   focus2: false,
-  //   axes: false,
-  //   auxAxes: false,
-  //   eccVec: false,
-  //   pqAxes: false,
-  //   auxCircle: false,
-  //   phi: 0
-  // };
-  // const GUI = lil.GUI;
-  // const gui = new GUI();
-  // //gui.add( document, 'title' );
-  // gui.add( params, 'origin' );
-  // gui.add( params, 'focus2' );
-  // gui.add( params, 'axes' );
-  // gui.add( params, 'auxAxes' );
-  // gui.add( params, 'eccVec' );
-  // gui.add( params, 'pqAxes' );
-  // gui.add( params, 'auxCircle' );
-  // //gui.add( params, 'phi', -90, 90 );
+//--------------------------------------------------------------------
+// Using Geometric/Clifford algebra with signature (2,0,1), based on
+// the work of Charles Gunn
+//--------------------------------------------------------------------
+const GA = Algebra(2,0,1,()=>{
 
-  // Using Geometric/Clifford algebra with signature (2,0,1), based on the work of Charles Gunn
   const point   = (x,y)=>!(1e0 + x*1e1 + y*1e2);
   const vector  = (x,y)=>!(x*1e1 + y*1e2);
   const dist    = (P,Q)=>((P.Normalized)&(Q.Normalized)).Length;
@@ -265,13 +245,22 @@ Algebra(2,0,1,()=>{
     //   0x44AA44, R2, 'R2' );
     // return items;
   }, {
-    grid: true,
-    labels: false,
-    lineWidth: 1,
-    pointRadius: 0.75,
-    fontSize: 0.75,
-    scale: 1,
-    width: 0.98*Math.min(window.innerWidth, window.innerHeight),
-    height: 0.98*Math.min(window.innerWidth, window.innerHeight)
+    animate:      false,
+    grid:         true,
+    labels:       false,
+    lineWidth:    1,
+    pointRadius:  0.75,
+    fontSize:     0.75,
+    scale:        0.5,
+    width:        Math.min(window.innerWidth, window.innerHeight),
+    height:       Math.min(window.innerWidth, window.innerHeight)
   }));
 });
+//--------------------------------------------------------------------
+window.addEventListener( 'resize', onWindowResize, false );
+//--------------------------------------------------------------------
+function onWindowResize() {
+  const aspect = window.innerWidth/window.innerHeight;
+  GA.width  = Math.min(window.innerWidth, window.innerHeight);
+  GA.height = Math.min(window.innerWidth, window.innerHeight);
+}

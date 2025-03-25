@@ -170,9 +170,9 @@ Algebra(2,0,1,()=>{
     //   const th = trueAnomalyFromMean(2*Math.PI*i/N, ef);
     //   return Ellipse(F1, af, ef, th, Pf, Qf)
     // });
-                                         
+    
     const AuxCircle   = [...Array(Nc)].map((x,i)=>()=>Circle(O, af, 2*Math.PI*i/Nc));
-   
+    
     return [
       'r1: ' + r1.toFixed(3),
       'r2: ' + r2.toFixed(3),
@@ -207,13 +207,15 @@ Algebra(2,0,1,()=>{
       [F1,(F1+ef*Pf)], 'e',
       0x00AA00,
       ...curve(FundEllipse),
-    ]}, { grid: true,
-          labels: false,
-          lineWidth: 1,
-          pointRadius: 0.5,
-          fontSize: 0.5,
-          scale: 0.5,
-          width: window.innerWidth,
-          height: window.innerHeight
-        }));
+    ]}, {
+      animate: false,
+      grid: true,
+      labels: false,
+      lineWidth: 1,
+      pointRadius: 0.75,
+      fontSize: 0.75,
+      scale: 0.75,
+      width:  Math.min(window.innerWidth, window.innerHeight),
+      height: Math.min(window.innerWidth, window.innerHeight)
+    }));
 });
