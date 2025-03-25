@@ -1,7 +1,3 @@
-function dot(a,b) {
-  return a.e02*b.e02 + a.e01*b.e01;
-}
-
 const GUI = lil.GUI;
 
 // Using Geometric/Clifford algebra with signature (2,0,1), based on the work of Charles Gunn
@@ -11,6 +7,7 @@ Algebra(2,0,1,()=>{
   const vector  = (x,y)=>!(x*1e1 + y*1e2);
   const dist    = (P,Q)=>((P.Normalized)&(Q.Normalized)).Length;
   const refl    = (l,m)=>(l.Normalized<<m.Normalized)*2*(m.Normalized)-l.Normalized;
+  const dot     = (a,b)=>(a.e02*b.e02 + a.e01*b.e01);
   const project = (a,b)=>(a | b) / b;
   const reject  = (a,b)=>(a | b);
   const lerp    = (a,b,t)=>(1-t)*a + t*b;
@@ -183,14 +180,15 @@ Algebra(2,0,1,()=>{
       this.aMin.e = 0;
       this.aMin.add(this.aMin, 'e').listen();
       this.aMinUpdate();
+      this.aMin.add(this.aMin, 'phi').listen();
       
       // Currently displayed orbit (initialized to eMin)
       const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
       const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
       // Bound phi so that eccentricity remains less than one (elliptic)
       const e         = this.eMin.e;
-      const phiMin    = Math.ceil(-Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
-      const phiMax    = Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      const phiMin    = Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      const phiMax    =  89;//Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
       this.curr       = this.addFolder('Current Orbit');
       this.curr.show  = true;
       this.curr.add(this.curr, 'show').listen()
@@ -198,7 +196,7 @@ Algebra(2,0,1,()=>{
       this.curr.dt    = this.eMin.dt;
       this.dtSlider   = this.curr.add(this.curr, 'dt', dtMin, dtMax, 1).listen();
       this.curr.phi   = 0.0;
-      this.phiSlider  = this.curr.add(this.curr, 'phi', phiMin, phiMax, 1).listen();
+      this.phiSlider  = this.curr.add(this.curr, 'phi', phiMin, phiMax, 0.1).listen();
       this.curr.a     = this.eMin.a;
       this.curr.add(this.curr, 'a').listen();
       this.curr.e     = this.eMin.e;
@@ -210,6 +208,21 @@ Algebra(2,0,1,()=>{
       const r1  = this.r1  = dist(F1, R1);
       const r2  = this.r2  = dist(F1, R2);
       const r12 = this.r12 = dist(R1, R2);
+    }
+    drawOrbit(obj) {
+      // const K = new Kepler(e);
+      obj.orbit= [...Array(N)].map((x,i)=>()=> {
+        // ... with uniform mean anomaly
+        // const M = 2*Math.PI*i/N;
+        // const E = K.solve(M);
+        // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
+        // ... with uniform eccentric anomaly
+        // const E = 2*Math.PI*i/N;
+        // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
+        // ... with uniform true anomaly
+        const th = 2*Math.PI*i/N;
+        return Ellipse(F1, obj.a, obj.e, th, obj.pVec, obj.qVec);
+      });
     }
     //---------------------------
     // Fundamental elliptic orbit
@@ -251,21 +264,7 @@ Algebra(2,0,1,()=>{
       const E2    = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th2/2));
       const dt    = this.eMin.dt = Math.sqrt(a*a*a/mu)*(E2 - E1 - e*(Math.sin(E2) - Math.sin(E1)));
       // Generate orbit ellipse...
-      if (this.eMin.show) {
-        // const K = new Kepler(e);
-        this.eMin.orbit = [...Array(N)].map((x,i)=>()=> {
-          // ... with uniform mean anomaly
-          // const M = 2*Math.PI*i/N;
-          // const E = K.solve(M);
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform eccentric anomaly
-          // const E = 2*Math.PI*i/N;
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform true anomaly
-          const th = 2*Math.PI*i/N;
-          return Ellipse(F1, a, e, th, P, Q);
-        });
-      }
+      if (this.eMin.show) this.drawOrbit(this.eMin);
     }
     aMinUpdate() {
       const r1  = this.r1;
@@ -288,6 +287,8 @@ Algebra(2,0,1,()=>{
       const Q     = this.aMin.qVec  = P*1e12;
       // Ellipse origin location
       const O     = this.aMin.O     = (F1 + F2).Normalized;
+      // Rotation angle of apse line from fundamental ellipse
+      const phi   = this.aMin.phi   = Math.atan2(dot(this.aMin.pVec,this.eMin.qVec),dot(this.aMin.pVec,this.eMin.pVec))*180/Math.PI;
       // Semi-parameter
       const q     = this.aMin.q     = a*(1-e*e);
       // Eccentricity vector
@@ -296,23 +297,9 @@ Algebra(2,0,1,()=>{
       const th2   = Math.acos(dot((R2-F1),eVec)/(r2*e));
       const E1    = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th1/2));
       const E2    = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th2/2));
-      const dt    = this.aMin.dt = Math.sqrt(a*a*a/mu)*(E2 - E1 - e*(Math.sin(E2) - Math.sin(E1)));
+      const dt   = this.aMin.dt = Math.sqrt(a*a*a/mu)*(E2 - E1 - e*(Math.sin(E2) - Math.sin(E1)));
       // Generate orbit ellipse...
-      if (this.aMin.show) {
-        // const K = new Kepler(e);
-        this.aMin.orbit= [...Array(N)].map((x,i)=>()=> {
-          // ... with uniform mean anomaly
-          // const M = 2*Math.PI*i/N;
-          // const E = K.solve(M);
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform eccentric anomaly
-          // const E = 2*Math.PI*i/N;
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform true anomaly
-          const th = 2*Math.PI*i/N;
-          return Ellipse(F1, a, e, th, P, Q)
-        });
-      }
+      if (this.aMin.show) this.drawOrbit(this.aMin);
     }
     currUpdate() {
       const r1  = this.r1;
@@ -322,13 +309,23 @@ Algebra(2,0,1,()=>{
       const phi = this.curr.phi;
       // Eccentricity
       const ep  = this.eMin.e;
+      // const eq  = Math.min(ep*Math.tan(phi*Math.PI/180), Math.sqrt(0.99999999-ep*ep));
       const eq  = ep*Math.tan(phi*Math.PI/180);
       const e   = this.curr.e = Math.sqrt(ep*ep + eq*eq);
+      // Bound phi so that eccentricity remains less than one (elliptic)
+      const phiMin = Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      const phiMax = Math.floor(Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      this.phiSlider.min(phiMin).max(phiMax);
+      this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
+      // Range of dt values between the eMin and aMin orbits
+      const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
+      const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
+      this.dtSlider.min(dtMin).max(dtMax);
       // Eccentricity vector
       const eVec= this.curr.eVec  = ep*this.eMin.pVec + eq*this.eMin.qVec;
       // Semi-major axis length
+      // const a   = this.curr.a = Math.max(this.aMin.a, (r1 + dot((R1-F1),eVec))/(1-e*e));
       const a   = this.curr.a = (r1 + dot((R1-F1),eVec))/(1-e*e);
-      // const a   = this.curr.a = Math.max(this.aMin.a, this.curr.a);
       // Primary axis direction
       const P   = this.curr.pVec  = (eVec/e).Normalized;
       // Secondary axis direction for the current orbit
@@ -339,35 +336,38 @@ Algebra(2,0,1,()=>{
       const O   = this.curr.O     = (F1 + F2).Normalized;
       // Semi-parameter
       const q   = this.curr.q     = a*(1-e*e);
+      const h   = Math.sqrt(mu*q);
       const th1   = Math.acos(dot((R1-F1),eVec)/(r1*e));
       const th2   = Math.acos(dot((R2-F1),eVec)/(r2*e));
-      const E1    = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th1/2));
-      const E2    = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th2/2));
-      // console.log(phi, th1, th2, E1, E2);
-      const dt    = this.curr.dt = Math.sqrt(a*a*a/mu)*(E2 - E1 - e*(Math.sin(E2) - Math.sin(E1)));
-      // Generate orbit ellipse...
-      if (this.curr.show) {
-        // const K = new Kepler(e);
-        this.curr.orbit= [...Array(N)].map((x,i)=>()=> {
-          // ... with uniform mean anomaly
-          // const M = 2*Math.PI*i/N;
-          // const E = K.solve(M);
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform eccentric anomaly
-          // const E = 2*Math.PI*i/N;
-          // const th = Math.atan2(Math.sin(E)*Math.sqrt(1-e*e),Math.cos(E)-e);
-          // ... with uniform true anomaly
-          const th = 2*Math.PI*i/N;
-          return Ellipse(F1, a, e, th, P, Q)
-        });
+      if (e < 1) {
+        const E1  = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th1/2));
+        const E2  = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(th2/2));
+        
+        const M1  = E1 - e*Math.sin(E1);
+        const M2  = E2 - e*Math.sin(E2);
+        const dt  = this.curr.dt = Math.sqrt(a*a*a/mu)*(M2 - M1);
       }
+      else if (e == 1) {
+        const M1  = Math.tan(th1/2)/2 + Math.pow(Math.tan(th1/2),3)/6;
+        const M2  = Math.tan(th2/2)/2 + Math.pow(Math.tan(th2/2),3)/6;
+        const dt  = this.curr.dt = (q*q/h)*(M2 - M1);
+      }
+      else if (e > 1) {
+        const F1  = 2*Math.atanh(Math.sqrt((e-1)/(e+1))*Math.tan(th1/2));
+        const F2  = 2*Math.atanh(Math.sqrt((e-1)/(e+1))*Math.tan(th2/2));
+        const M1  = e*Math.sinh(F1) - F1;
+        const M2  = e*Math.sinh(F2) - F2;
+        const dt  = this.curr.dt = Math.sqrt(-a*a*a/mu)*(M2 - M1);
+      }
+      // Generate orbit ellipse...
+      if (this.curr.show) this.drawOrbit(this.curr);
     }
     graphUpdate() {
       // ... with uniform eccentric anomaly
-      const eMinEllipse = [...Array(N)].map((x,i)=>()=> {
-        const th = trueAnomalyFromEccentric(2*Math.PI*i/N, ef);
-        return Ellipse(F1, af, ef, th, Pf, Qf)
-      });
+      // const eMinEllipse = [...Array(N)].map((x,i)=>()=> {
+      //   const th = trueAnomalyFromEccentric(2*Math.PI*i/N, ef);
+      //   return Ellipse(F1, af, ef, th, Pf, Qf)
+      // });
       graph.push('r1: '  + this.r1.toFixed(3));
       graph.push('r2: '  + this.r2.toFixed(3));
       graph.push('r12: ' + this.r12.toFixed(3));
@@ -401,16 +401,6 @@ Algebra(2,0,1,()=>{
         graph.push(0x0000AA, ...curve(this.curr.orbit));
       }
     }
-      
-    //   Pf: undefined,
-    //   Qf: undefined,
-    //   pf: 0, // component of eccentricity vector in Pf direction
-    //   qf: 0, // component of eccentricity vector in Qf direction
-    //   eVec: pf*Pf + qf*Qf,
-    //   phi: Math.atan2(eq,ep);
-    //   a: 2.0,
-    //   e: 0.5
-    // };
   };
   
   const controls = new Controls();
@@ -425,43 +415,6 @@ Algebra(2,0,1,()=>{
     controls.aMinUpdate();
     controls.currUpdate();
     controls.graphUpdate();
-    
-    // const orbit = [...Array(N)].map((x,i)=>()=> {
-    //   // const th = trueAnomalyFromEccentric(2*Math.PI*i/N, e);
-    //   const th = 2*Math.PI*i/N;
-    //   return Ellipse(F1, a, e, th, P, Q)
-    // });
-    // // ... with uniform mean anomaly
-    // // const FundEllipse = [...Array(N)].map((x,i)=>()=> {
-    // //   const th = trueAnomalyFromMean(2*Math.PI*i/N, ef);
-    // //   return Ellipse(F1, af, ef, th, Pf, Qf)
-    // // });
-                                         
-    // const auxCircle   = [...Array(Nc)].map((x,i)=>()=>Circle(O, a, 2*Math.PI*i/Nc));
-   
-    // let items = [
-      // 'phi: ' + params.phi.toFixed(3),
-      // 'e: '   + e.toFixed(3),
-      // 'a: '   + a.toFixed(3),
-      // 'tf: '  + tFlight.toFixed(3),
-      // // 'p1,q1: ' + p1.toFixed(3) + ',' + q1.toFixed(3),
-      // // 'p2,q2: ' + p2.toFixed(3) + ',' + q2.toFixed(3),
-      // 0x888888, O,  'O',
-      // 0x888888, F2, 'F2',
-      // 0xAAAAAA, F1&F2, F1&F2|O,
-      // 0xAAAAAA, R1&R2, R1&R2|(F1+ef*Pf),
-      // 0x884488, [F1,F1+0.25*P], 'p',  [F1,F1+0.25*Q], 'q',
-      // 0xAA0000, ...curve(auxCircle),
-      // 0xAA0000, [F1,(F1+eVec)], 'e',
-      // 0x0000AA, ...curve(orbit),
-      // 0xAAAAAA, [F2,R1], '2a-r1',
-      // 0xAAAAAA, [F2,R2], '2a-r2',
-      // 0x448844, [F1,R1], 'r1',
-      // 0x448844, [F1,R2], 'r2',
-      // 0x448844, [R1,R2], 'c',
-    //   0x444444, F1, 'F1',
-    //   0x44AA44, R1, 'R1',
-    //   0x44AA44, R2, 'R2' ];
     return graph;
   }, {
     animate: true,
@@ -471,7 +424,7 @@ Algebra(2,0,1,()=>{
     pointRadius: 0.75,
     fontSize: 0.75,
     scale: 0.5,
-    width: 0.99*Math.min(window.innerWidth, window.innerHeight),
-    height: 0.99*Math.min(window.innerWidth, window.innerHeight)
+    width: 0.98*Math.min(window.innerWidth, window.innerHeight),
+    height: 0.98*Math.min(window.innerWidth, window.innerHeight)
   }));
 });
