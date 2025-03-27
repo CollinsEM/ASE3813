@@ -86,6 +86,7 @@ Algebra(2,0,1,()=>{
       this.eMin.e = 0;
       this.eMin.add(this.eMin, 'e').listen();
       this.eMinUpdate();
+      this.eMin.close();
       
       // Minimum energy orbit
       this.aMin = this.addFolder('Minimum Energy Orbit');
@@ -98,6 +99,7 @@ Algebra(2,0,1,()=>{
       this.aMin.add(this.aMin, 'e').listen();
       this.aMinUpdate();
       this.aMin.add(this.aMin, 'phi').listen();
+      this.aMin.close();
       
       // Currently displayed orbit (initialized to eMin)
       const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
