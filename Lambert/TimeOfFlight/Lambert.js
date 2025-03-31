@@ -102,20 +102,20 @@ Algebra(2,0,1,()=>{
       this.aMin.close();
       
       // Currently displayed orbit (initialized to eMin)
-      const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
-      const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
-      // Bound phi so that eccentricity remains less than one (elliptic)
-      const e         = this.eMin.e;
-      const phiMin    = -89;//Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
-      const phiMax    =  89;//Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
       this.curr       = this.addFolder('Current Orbit');
       this.curr.show  = true;
       this.curr.add(this.curr, 'show').listen()
         .onChange(()=>{ controls.currUpdate(); });
-      this.curr.dt    = this.eMin.dt;
-      this.dtSlider   = this.curr.add(this.curr, 'dt', dtMin, dtMax, 1).listen();
+      // Bound phi so that eccentricity remains less than one (elliptic)
+      const e         = this.eMin.e;
+      const phiMin    = -89;//Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      const phiMax    =  89;//Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
       this.curr.phi   = 0.0;
       this.phiSlider  = this.curr.add(this.curr, 'phi', phiMin, phiMax, 0.1).listen();
+      // const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
+      // const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
+      this.curr.dt    = this.eMin.dt;
+      this.dtSlider   = this.curr.add(this.curr, 'dt').listen();
       this.curr.a     = this.eMin.a;
       this.curr.add(this.curr, 'a').listen();
       this.curr.e     = this.eMin.e;
@@ -240,9 +240,9 @@ Algebra(2,0,1,()=>{
       // this.phiSlider.min(phiMin).max(phiMax);
       // this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
       // Range of dt values between the eMin and aMin orbits
-      const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
-      const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
-      this.dtSlider.min(dtMin).max(dtMax);
+      // const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
+      // const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
+      // this.dtSlider.min(dtMin).max(dtMax);
       // Eccentricity vector
       const eVec= this.curr.eVec  = ep*this.eMin.pVec + eq*this.eMin.qVec;
       // Semi-major axis length
