@@ -172,6 +172,7 @@ Algebra(2,0,1,()=>{
       this.orbit1.add(this.orbit1, 'th', 0, 360, 5).listen()
         .onChange((value)=>{ this.orbit2.th = (value + 180)%360 });
       this.updateOrbit1();
+      this.orbit1.close();
       
       // Orbit 2
       this.orbit2 = this.addFolder('Orbit 2');
@@ -186,6 +187,7 @@ Algebra(2,0,1,()=>{
       this.orbit2.add(this.orbit2, 'th', 0, 360, 5).listen()
         .onChange((value)=>{ this.orbit1.th = (value + 180)%360 });
       this.updateOrbit2();
+      this.orbit2.close();
       
       // Transfer Orbit
       this.transfer = this.addFolder('Orbit 3');
@@ -201,7 +203,9 @@ Algebra(2,0,1,()=>{
       this.transfer.th = 0;
       this.transfer.add(this.transfer, 'th', 0, 360, 5).listen();
       this.updateTransfer();
-      
+      this.transfer.close();
+
+      this.close();
     }
     //---------------------------
     // Plot orbit points
