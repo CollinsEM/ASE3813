@@ -203,7 +203,7 @@ const GA = Algebra(2,0,1,()=>{
       0xAA0000, ...curve(aAuxCircle),
       0xAA0000, [F1,(F1+em*Pm)], 'e',
       0x440000, [F1,(F1+ef*Pf)], 'ef',
-      0x440000, [F1+ef*Pf,(F1+ef*Pf+eq*Qf)], 'eq',
+      0x440000, [F1+ef*Pf,(F1+em*Pm)], 'eq',
       // 0xAA00AA, [F1,(F1+ef*Pf)], 'ef',
       // 0x00AA00, ...curve(eMinEllipse),
       0x0000AA, ...curve(aMinEllipse),

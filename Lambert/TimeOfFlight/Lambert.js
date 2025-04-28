@@ -98,7 +98,7 @@ Algebra(2,0,1,()=>{
       this.aMin.e = 0;
       this.aMin.add(this.aMin, 'e').listen();
       this.aMinUpdate();
-      this.aMin.add(this.aMin, 'phi').listen();
+      this.aMin.add(this.aMin, 'eta').listen();
       this.aMin.close();
       
       // Currently displayed orbit (initialized to eMin)
@@ -106,12 +106,12 @@ Algebra(2,0,1,()=>{
       this.curr.show  = true;
       this.curr.add(this.curr, 'show').listen()
         .onChange(()=>{ controls.currUpdate(); });
-      // Bound phi so that eccentricity remains less than one (elliptic)
+      // Bound eta so that eccentricity remains less than one (elliptic)
       const e         = this.eMin.e;
-      const phiMin    = -89;//Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
-      const phiMax    =  89;//Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
-      this.curr.phi   = 0.0;
-      this.phiSlider  = this.curr.add(this.curr, 'phi', phiMin, phiMax, 0.1).listen();
+      const etaMin    = -89;//Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      const etaMax    =  89;//Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      this.curr.eta   = 0.0;
+      this.etaSlider  = this.curr.add(this.curr, 'eta', etaMin, etaMax, 0.1).listen();
       // const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
       // const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
       this.curr.dt    = this.eMin.dt;
@@ -156,11 +156,11 @@ Algebra(2,0,1,()=>{
       // Eccentricity
       const e   = this.eMin.e = Math.abs(r1 - r2)/r12;
       // Update the minimum value for the eccentricity slider on the current orbit
-      // if (this.phiCurr) {
-      //   const phiMin = Math.ceil(-Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
-      //   const phiMax = Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
-      //   this.phiCurr.min(phiMin).max(phiMax);
-      //   this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
+      // if (this.etaCurr) {
+      //   const etaMin = Math.ceil(-Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      //   const etaMax = Math.floor(Math.atan(Math.sqrt(1-e*e)/e)*180/Math.PI);
+      //   this.etaCurr.min(etaMin).max(etaMax);
+      //   this.curr.eta = Math.min(etaMax,Math.max(etaMin, this.curr.eta));
       // }
       // Semi-major axis length
       const a   = this.eMin.a = (r1 + r2)/2;
@@ -210,7 +210,7 @@ Algebra(2,0,1,()=>{
       // Ellipse origin location
       const O     = this.aMin.O     = (F1 + F2).Normalized;
       // Rotation angle of apse line from fundamental ellipse
-      const phi   = this.aMin.phi   = Math.atan2(dot(this.aMin.pVec,this.eMin.qVec),dot(this.aMin.pVec,this.eMin.pVec))*180/Math.PI;
+      const eta   = this.aMin.eta   = Math.atan2(dot(this.aMin.pVec,this.eMin.qVec),dot(this.aMin.pVec,this.eMin.pVec))*180/Math.PI;
       // Semi-parameter
       const q     = this.aMin.q     = a*(1-e*e);
       // Eccentricity vector
@@ -228,17 +228,17 @@ Algebra(2,0,1,()=>{
       const r2  = this.r2;
       const r12 = this.r12;
       // Apse line rotation from fundamental ellipse
-      const phi = this.curr.phi;
+      const eta = this.curr.eta;
       // Eccentricity
       const ep  = this.eMin.e;
-      // const eq  = Math.min(ep*Math.tan(phi*Math.PI/180), Math.sqrt(0.99999999-ep*ep));
-      const eq  = ep*Math.tan(phi*Math.PI/180);
+      // const eq  = Math.min(ep*Math.tan(eta*Math.PI/180), Math.sqrt(0.99999999-ep*ep));
+      const eq  = this.curr.eq = ep*Math.tan(eta*Math.PI/180);
       const e   = this.curr.e = Math.sqrt(ep*ep + eq*eq);
-      // Bound phi so that eccentricity remains less than one (elliptic)
-      // const phiMin = Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
-      // const phiMax = Math.floor(Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
-      // this.phiSlider.min(phiMin).max(phiMax);
-      // this.curr.phi = Math.min(phiMax,Math.max(phiMin, this.curr.phi));
+      // Bound eta so that eccentricity remains less than one (elliptic)
+      // const etaMin = Math.ceil(-Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      // const etaMax = Math.floor(Math.atan(Math.sqrt(0.99999999-e*e)/e)*180/Math.PI);
+      // this.etaSlider.min(etaMin).max(etaMax);
+      // this.curr.eta = Math.min(etaMax,Math.max(etaMin, this.curr.eta));
       // Range of dt values between the eMin and aMin orbits
       // const dtMin     = Math.min(this.eMin.dt, this.aMin.dt);
       // const dtMax     = Math.max(this.eMin.dt, this.aMin.dt);
@@ -326,7 +326,10 @@ Algebra(2,0,1,()=>{
         graph.push(0xAAAAFF, this.curr.O,  'O');
         graph.push(0xAAAAFF, this.curr.F2, 'F2');
         graph.push(0x8888AA, F1 & this.curr.F2);
-        graph.push(0x0000AA, [F1,F1+this.curr.eVec]);
+        // graph.push(0x0000AA, [F1,F1+this.curr.eVec]);
+        graph.push(0x0000AA, [F1,F1+this.curr.eVec], 'e');
+        graph.push(0x000044, [F1,F1+this.eMin.eVec], 'ef');
+        graph.push(0x000044, [F1+this.eMin.eVec,F1+this.curr.eVec], 'eq');
         graph.push(0x0000AA, ...curve(this.curr.orbit));
       }
     }
