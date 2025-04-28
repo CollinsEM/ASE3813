@@ -8,6 +8,7 @@ const GA = Algebra(2,0,1,()=>{
   const vector  = (x,y)=>!(x*1e1 + y*1e2);
   const dist    = (P,Q)=>((P.Normalized)&(Q.Normalized)).Length;
   const refl    = (l,m)=>(l.Normalized<<m.Normalized)*2*(m.Normalized)-l.Normalized;
+  const dot     = (a,b)=>(a.e02*b.e02 + a.e01*b.e01);
   const project = (a,b)=>(a | b) / b;
   const reject  = (a,b)=>(a | b);
   const lerp    = (a,b,t)=>(1-t)*a + t*b;
@@ -154,6 +155,8 @@ const GA = Algebra(2,0,1,()=>{
     const Em  = (F1 - F2)/(2*am);           // eccentricity vector for minimum energy orbit
     const Pm  = Em/em;                      // periapsis direction (p)
     const Qm  = Pm*1e12;                    // semi-parameter (semi-minor axis) direction (q)
+    const eta = Math.atan2(dot(Em,Qf),dot(Em,Pf)); // Angle of rotation of the apse line
+    const eq  = ef*Math.tan(eta);           // component of eccentricity perpendicular to the chord line
     // perifocal unit vector (p)
     // const phi = Math.acos(Pf.Dot(Pm));
     // Generate fundamental ellipse...
@@ -185,10 +188,11 @@ const GA = Algebra(2,0,1,()=>{
       'r1: ' + r1.toFixed(3),
       'r2: ' + r2.toFixed(3),
       'c:  ' + c.toFixed(3),
-      // 'af:  ' + af.toFixed(3),
-      // 'ef:  ' + ef.toFixed(3),
       'a:  ' + am.toFixed(3),
+      // 'af:  ' + af.toFixed(3),
       'e:  ' + em.toFixed(3),
+      'ef:  ' + ef.toFixed(3),
+      'eq:  ' + eq.toFixed(3),
       //'phi: ' + (phi*180/Math.PI).toFixed(3),
       0x888888, O,  'O',
       0x888888, F2, 'F2',
@@ -198,6 +202,8 @@ const GA = Algebra(2,0,1,()=>{
       // 0x888844, [F1,F1+0.25*Pf], 'pf', [F1,F1+0.25*Qf], 'qf',
       0xAA0000, ...curve(aAuxCircle),
       0xAA0000, [F1,(F1+em*Pm)], 'e',
+      0x440000, [F1,(F1+ef*Pf)], 'ef',
+      0x440000, [F1+ef*Pf,(F1+ef*Pf+eq*Qf)], 'eq',
       // 0xAA00AA, [F1,(F1+ef*Pf)], 'ef',
       // 0x00AA00, ...curve(eMinEllipse),
       0x0000AA, ...curve(aMinEllipse),
