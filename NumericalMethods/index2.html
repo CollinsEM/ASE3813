@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numerical Methods Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .tab-button.active {
+            border-bottom: 2px solid #3b82f6;
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="p-6 md:p-10">
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-8 space-y-8">
+
+        <h1 class="text-3xl md:text-4xl font-extrabold text-center text-gray-900 mb-6">Numerical Methods Demonstration</h1>
+
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200">
+            <button id="diff-tab" class="tab-button active flex-1 py-3 px-4 text-center font-semibold text-gray-600 transition-colors duration-200 hover:text-blue-500">
+                Finite Difference Differentiation
+            </button>
+            <button id="quad-tab" class="tab-button flex-1 py-3 px-4 text-center font-semibold text-gray-600 transition-colors duration-200 hover:text-blue-500">
+                Quadrature Integration
+            </button>
+            <button id="rk-tab" class="tab-button flex-1 py-3 px-4 text-center font-semibold text-gray-600 transition-colors duration-200 hover:text-blue-500">
+                Runge-Kutta Integration
+            </button>
+        </div>
+
+        <!-- Finite Difference Tab Content -->
+        <div id="diff-content" class="space-y-6">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Canvas and Details -->
+                <div class="w-full md:w-3/4 bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-inner relative">
+                    <canvas id="diffCanvas" class="w-full h-96 bg-white rounded-lg"></canvas>
+                    <div class="absolute top-4 right-4 p-3 bg-white bg-opacity-80 rounded-lg shadow-md text-sm">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-1.5 rounded-full bg-green-500"></div>
+                            <span>Function $f(x)$</span>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <div class="w-4 h-1.5 rounded-full bg-red-500"></div>
+                            <span>True Derivative $f'(x)$</span>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <div class="w-4 h-1.5 rounded-full bg-blue-500"></div>
+                            <span>Finite Difference</span>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <div class="w-4 h-1.5 rounded-full" style="background-color: #fca5a5;"></div>
+                            <span>Error $|f'(x) - \text{FD}(x)|$</span>
+                        </div>
+                    </div>
+                    <div id="diff-results" class="mt-4 p-4 bg-white rounded-lg shadow-md border border-gray-100 space-y-2">
+                        <p class="text-gray-800 font-medium">True Derivative at $x_0$: <span id="true-derivative" class="font-mono text-green-600"></span></p>
+                        <p class="text-gray-800 font-medium">Finite Difference at $x_0$: <span id="fd-value" class="font-mono text-blue-600"></span></p>
+                        <p class="text-gray-800 font-medium">Error: <span id="error-value" class="font-mono text-red-600"></span></p>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="w-full md:w-1/4 bg-gray-50 rounded-lg p-6 space-y-6 shadow-md border border-gray-200">
+                    <div>
+                        <label for="x0-slider" class="block text-lg font-bold mb-2">Evaluation Point $x_0$</label>
+                        <input type="range" id="x0-slider" min="-3" max="3" value="0" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="x0-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+
+                    <div>
+                        <label for="h-slider" class="block text-lg font-bold mb-2">Step Size $h$</label>
+                        <input type="range" id="h-slider" min="0.01" max="2" value="1" step="0.01" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="h-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+                    
+                    <div>
+                        <p class="text-lg font-bold mb-2">Finite Difference Method</p>
+                        <div class="flex flex-col space-y-2">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="method" value="forward" checked class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Forward Difference</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="method" value="backward" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Backward Difference</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="method" value="central" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Central Difference</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quadrature Tab Content -->
+        <div id="quad-content" class="space-y-6 hidden">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Canvas and Details -->
+                <div class="w-full md:w-3/4 bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-inner relative">
+                    <canvas id="quadCanvas" class="w-full h-96 bg-white rounded-lg"></canvas>
+                    <div class="absolute top-4 right-4 p-3 bg-white bg-opacity-80 rounded-lg shadow-md text-sm">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-1.5 rounded-full bg-green-500"></div>
+                            <span>Function $f(x)$</span>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <div class="w-4 h-1.5 rounded-full bg-blue-500"></div>
+                            <span>Area Approximation</span>
+                        </div>
+                    </div>
+                    <div id="quad-results" class="mt-4 p-4 bg-white rounded-lg shadow-md border border-gray-100 space-y-2">
+                        <p class="text-gray-800 font-medium">True Integral Value: <span id="true-integral" class="font-mono text-green-600"></span></p>
+                        <p class="text-gray-800 font-medium">Approximation Value: <span id="approx-value" class="font-mono text-blue-600"></span></p>
+                        <p class="text-gray-800 font-medium">Error: <span id="quad-error-value" class="font-mono text-red-600"></span></p>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="w-full md:w-1/4 bg-gray-50 rounded-lg p-6 space-y-6 shadow-md border border-gray-200">
+                    <div>
+                        <label for="a-slider" class="block text-lg font-bold mb-2">Lower Bound $a$</label>
+                        <input type="range" id="a-slider" min="-3" max="3" value="-3" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="a-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+                    <div>
+                        <label for="b-slider" class="block text-lg font-bold mb-2">Upper Bound $b$</label>
+                        <input type="range" id="b-slider" min="-3" max="3" value="3" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="b-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+                    <div>
+                        <label for="n-slider" class="block text-lg font-bold mb-2">Number of Intervals $n$</label>
+                        <input type="range" id="n-slider" min="1" max="100" value="10" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="n-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+
+                    <div>
+                        <p class="text-lg font-bold mb-2">Quadrature Method</p>
+                        <div class="flex flex-col space-y-2">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="quad-method" value="left" checked class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Left Riemann Sum</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="quad-method" value="right" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Right Riemann Sum</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="quad-method" value="midpoint" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Midpoint Rule</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="quad-method" value="trapezoidal" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Trapezoidal Rule</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="quad-method" value="simpson" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">Simpson's Rule</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Runge-Kutta Tab Content -->
+        <div id="rk-content" class="space-y-6 hidden">
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Canvas and Details -->
+                <div class="w-full md:w-3/4 bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-inner relative">
+                    <canvas id="rkCanvas" class="w-full h-96 bg-white rounded-lg"></canvas>
+                    <div class="absolute top-4 right-4 p-3 bg-white bg-opacity-80 rounded-lg shadow-md text-sm">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-1.5 rounded-full bg-green-500"></div>
+                            <span>True Solution</span>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <div class="w-4 h-1.5 rounded-full bg-blue-500"></div>
+                            <span>RK Approximation</span>
+                        </div>
+                    </div>
+                    <div id="rk-results" class="mt-4 p-4 bg-white rounded-lg shadow-md border border-gray-100 space-y-2">
+                        <p class="text-gray-800 font-medium">True Value at Final Step: <span id="true-rk-value" class="font-mono text-green-600"></span></p>
+                        <p class="text-gray-800 font-medium">Approximation at Final Step: <span id="approx-rk-value" class="font-mono text-blue-600"></span></p>
+                        <p class="text-gray-800 font-medium">Error: <span id="rk-error-value" class="font-mono text-red-600"></span></p>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="w-full md:w-1/4 bg-gray-50 rounded-lg p-6 space-y-6 shadow-md border border-gray-200">
+                    <div>
+                        <label for="x0-rk-slider" class="block text-lg font-bold mb-2">Initial Condition $x_0$</label>
+                        <input type="range" id="x0-rk-slider" min="0" max="1" value="0" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="x0-rk-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+                    <div>
+                        <label for="y0-rk-slider" class="block text-lg font-bold mb-2">Initial Condition $y_0$</label>
+                        <input type="range" id="y0-rk-slider" min="0" max="2" value="1" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="y0-rk-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+                    <div>
+                        <label for="h-rk-slider" class="block text-lg font-bold mb-2">Step Size $h$</label>
+                        <input type="range" id="h-rk-slider" min="0.01" max="1" value="0.5" step="0.01" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="h-rk-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+                    <div>
+                        <label for="steps-rk-slider" class="block text-lg font-bold mb-2">Number of Steps</label>
+                        <input type="range" id="steps-rk-slider" min="1" max="100" value="10" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <span id="steps-rk-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+                    </div>
+                    
+                    <div>
+                        <p class="text-lg font-bold mb-2">Runge-Kutta Method</p>
+                        <div class="flex flex-col space-y-2">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="rk-method" value="rk1" checked class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">RK1 (Forward Euler)</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="rk-method" value="rk2" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">RK2 (Midpoint)</span>
+                            </label>
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="radio" name="rk-method" value="rk4" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                                <span class="text-sm text-gray-700">RK4</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Tab elements
+            const diffTab = document.getElementById('diff-tab');
+            const quadTab = document.getElementById('quad-tab');
+            const rkTab = document.getElementById('rk-tab');
+            const diffContent = document.getElementById('diff-content');
+            const quadContent = document.getElementById('quad-content');
+            const rkContent = document.getElementById('rk-content');
+
+            // Differentiation elements
+            const diffCanvas = document.getElementById('diffCanvas');
+            const diffCtx = diffCanvas.getContext('2d');
+            const x0Slider = document.getElementById('x0-slider');
+            const hSlider = document.getElementById('h-slider');
+            const x0Label = document.getElementById('x0-label');
+            const hLabel = document.getElementById('h-label');
+            const fdValueSpan = document.getElementById('fd-value');
+            const trueDerivativeSpan = document.getElementById('true-derivative');
+            const errorValueSpan = document.getElementById('error-value');
+            const methodRadios = document.querySelectorAll('input[name="method"]');
+
+            // Quadrature elements
+            const quadCanvas = document.getElementById('quadCanvas');
+            const quadCtx = quadCanvas.getContext('2d');
+            const aSlider = document.getElementById('a-slider');
+            const bSlider = document.getElementById('b-slider');
+            const nSlider = document.getElementById('n-slider');
+            const aLabel = document.getElementById('a-label');
+            const bLabel = document.getElementById('b-label');
+            const nLabel = document.getElementById('n-label');
+            const trueIntegralSpan = document.getElementById('true-integral');
+            const approxValueSpan = document.getElementById('approx-value');
+            const quadErrorValueSpan = document.getElementById('quad-error-value');
+            const quadMethodRadios = document.querySelectorAll('input[name="quad-method"]');
+
+            // Runge-Kutta elements
+            const rkCanvas = document.getElementById('rkCanvas');
+            const rkCtx = rkCanvas.getContext('2d');
+            const x0RKSlider = document.getElementById('x0-rk-slider');
+            const y0RKSlider = document.getElementById('y0-rk-slider');
+            const hRKSlider = document.getElementById('h-rk-slider');
+            const stepsRKSlider = document.getElementById('steps-rk-slider');
+            const x0RKLabel = document.getElementById('x0-rk-label');
+            const y0RKLabel = document.getElementById('y0-rk-label');
+            const hRKLabel = document.getElementById('h-rk-label');
+            const stepsRKLabel = document.getElementById('steps-rk-label');
+            const trueRKValueSpan = document.getElementById('true-rk-value');
+            const approxRKValueSpan = document.getElementById('approx-rk-value');
+            const rkErrorValueSpan = document.getElementById('rk-error-value');
+            const rkMethodRadios = document.querySelectorAll('input[name="rk-method"]');
+
+            // Set up plot boundaries and scaling
+            let width, height;
+            let xMin, xMax, yMin, yMax;
+
+            const xScale = (x) => (x - xMin) / (xMax - xMin) * width;
+            const yScale = (y) => height - (y - yMin) / (yMax - yMin) * height;
+            const toCanvasCoords = (x, y) => ({ x: xScale(x), y: yScale(y) });
+
+            // --- Function Definitions ---
+            const func = (x) => (x ** 3) - (6 * x ** 2) + (5 * x) + (10 * Math.sin(3 * x));
+            
+            // True derivative
+            const trueDerivative = (x) => (3 * x ** 2) - (12 * x) + 5 + (30 * Math.cos(3 * x));
+
+            // True integral
+            const trueIntegral = (x) => (x ** 4) / 4 - 2 * (x ** 3) + 2.5 * (x ** 2) - (10 / 3) * Math.cos(3 * x);
+
+            // Finite difference formulas
+            const finiteDifference = (x0, h, method) => {
+                switch (method) {
+                    case 'forward':
+                        return (func(x0 + h) - func(x0)) / h;
+                    case 'backward':
+                        return (func(x0) - func(x0 - h)) / h;
+                    case 'central':
+                        return (func(x0 + h) - func(x0 - h)) / (2 * h);
+                    default:
+                        return 0;
+                }
+            };
+
+            // Quadrature formulas
+            const quadrature = (a, b, n, method) => {
+                const h = (b - a) / n;
+                let sum = 0;
+                
+                switch (method) {
+                    case 'left':
+                        for (let i = 0; i < n; i++) {
+                            sum += func(a + i * h);
+                        }
+                        return sum * h;
+                    case 'right':
+                        for (let i = 1; i <= n; i++) {
+                            sum += func(a + i * h);
+                        }
+                        return sum * h;
+                    case 'midpoint':
+                        for (let i = 0; i < n; i++) {
+                            const xi = a + i * h;
+                            const midpoint = xi + h / 2;
+                            sum += func(midpoint);
+                        }
+                        return sum * h;
+                    case 'trapezoidal':
+                        for (let i = 0; i < n; i++) {
+                            const x_i = a + i * h;
+                            const x_i_plus_1 = a + (i + 1) * h;
+                            sum += (func(x_i) + func(x_i_plus_1)) / 2;
+                        }
+                        return sum * h;
+                    case 'simpson':
+                        if (n % 2 !== 0) {
+                            console.error("Simpson's Rule requires an even number of intervals.");
+                            return NaN;
+                        }
+                        sum = func(a) + func(b);
+                        for (let i = 1; i < n; i += 2) {
+                            sum += 4 * func(a + i * h);
+                        }
+                        for (let i = 2; i < n; i += 2) {
+                            sum += 2 * func(a + i * h);
+                        }
+                        return sum * h / 3;
+                    default:
+                        return 0;
+                }
+            };
+            
+            // ODE and its true solution
+            const f_ode = (x, y) => -2 * y + Math.cos(x);
+            const trueODE = (x, x0, y0) => {
+                const C = y0 - (2 / 5) * Math.cos(x0) - (1 / 5) * Math.sin(x0);
+                return (2 / 5) * Math.cos(x) + (1 / 5) * Math.sin(x) + C * Math.exp(-2 * x);
+            };
+
+            const rungeKutta = (x0, y0, h, steps, method) => {
+                let x = x0;
+                let y = y0;
+                const points = [{ x, y }];
+
+                for (let i = 0; i < steps; i++) {
+                    switch (method) {
+                        case 'rk1': // Forward Euler
+                            y = y + h * f_ode(x, y);
+                            x = x + h;
+                            break;
+                        case 'rk2': // Midpoint Method
+                            const k1_rk2 = h * f_ode(x, y);
+                            const k2_rk2 = h * f_ode(x + h / 2, y + k1_rk2 / 2);
+                            y = y + k2_rk2;
+                            x = x + h;
+                            break;
+                        case 'rk4':
+                            const k1 = h * f_ode(x, y);
+                            const k2 = h * f_ode(x + h / 2, y + k1 / 2);
+                            const k3 = h * f_ode(x + h / 2, y + k2 / 2);
+                            const k4 = h * f_ode(x + h, y + k3);
+                            y = y + (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+                            x = x + h;
+                            break;
+                    }
+                    points.push({ x, y });
+                }
+                return points;
+            };
+
+            // --- Drawing Functions ---
+            const drawGridAndAxes = (ctx) => {
+                ctx.clearRect(0, 0, width, height);
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, yScale(0));
+                ctx.lineTo(width, yScale(0));
+                ctx.moveTo(xScale(0), 0);
+                ctx.lineTo(xScale(0), height);
+                ctx.stroke();
+
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                for (let i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+                    if (i !== 0) {
+                        ctx.fillText(i, xScale(i), yScale(0) + 5);
+                    }
+                }
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                for (let i = Math.ceil(yMin / 5) * 5; i <= Math.floor(yMax / 5) * 5; i += 5) {
+                    if (i !== 0) {
+                        ctx.fillText(i, xScale(0) - 5, yScale(i));
+                    }
+                }
+            };
+
+            const drawGraph = (ctx) => {
+                ctx.strokeStyle = '#10b981'; // green-500
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < width; i++) {
+                    const x = xMin + (i / width) * (xMax - xMin);
+                    const y = func(x);
+                    const p = toCanvasCoords(x, y);
+                    if (i === 0) {
+                        ctx.moveTo(p.x, p.y);
+                    } else {
+                        ctx.lineTo(p.x, p.y);
+                    }
+                }
+                ctx.stroke();
+            };
+            
+            // --- Differentiation Plotting ---
+            const drawDiffPlot = () => {
+                xMin = -3;
+                xMax = 3;
+                yMin = -20;
+                yMax = 20;
+
+                const ctx = diffCtx;
+                drawGridAndAxes(ctx);
+                drawGraph(ctx);
+                
+                const x0 = parseFloat(x0Slider.value);
+                const h = parseFloat(hSlider.value);
+                const method = document.querySelector('input[name="method"]:checked').value;
+
+                // Draw error plot
+                ctx.strokeStyle = '#fca5a5';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                for (let i = 0; i < width; i++) {
+                    const x = xMin + (i / width) * (xMax - xMin);
+                    const error = Math.abs(trueDerivative(x) - finiteDifference(x, h, method));
+                    const p = toCanvasCoords(x, error);
+                    if (i === 0) {
+                        ctx.moveTo(p.x, p.y);
+                    } else {
+                        ctx.lineTo(p.x, p.y);
+                    }
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                const y0 = func(x0);
+                const fd_val = finiteDifference(x0, h, method);
+                const true_val = trueDerivative(x0);
+                const error = Math.abs(true_val - fd_val);
+
+                trueDerivativeSpan.textContent = true_val.toFixed(4);
+                fdValueSpan.textContent = fd_val.toFixed(4);
+                errorValueSpan.textContent = error.toExponential(2);
+
+                const p0 = toCanvasCoords(x0, y0);
+                
+                ctx.strokeStyle = '#ef4444'; // red-500
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(xScale(x0 - 3), yScale(y0 + true_val * -3));
+                ctx.lineTo(xScale(x0 + 3), yScale(y0 + true_val * 3));
+                ctx.stroke();
+
+                let x1, y1;
+                switch (method) {
+                    case 'forward':
+                        x1 = x0 + h;
+                        y1 = func(x1);
+                        break;
+                    case 'backward':
+                        x1 = x0 - h;
+                        y1 = func(x1);
+                        break;
+                    case 'central':
+                        const x_left = x0 - h;
+                        const y_left = func(x_left);
+                        const x_right = x0 + h;
+                        const y_right = func(x_right);
+
+                        ctx.fillStyle = '#f97316';
+                        ctx.beginPath();
+                        ctx.arc(toCanvasCoords(x_left, y_left).x, toCanvasCoords(x_left, y_left).y, 4, 0, 2 * Math.PI);
+                        ctx.fill();
+                        
+                        ctx.beginPath();
+                        ctx.arc(toCanvasCoords(x_right, y_right).x, toCanvasCoords(x_right, y_right).y, 4, 0, 2 * Math.PI);
+                        ctx.fill();
+
+                        x1 = x_right;
+                        y1 = y_right;
+                        break;
+                }
+
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(xScale(x0 - 3), yScale(y0 + fd_val * -3));
+                ctx.lineTo(xScale(x0 + 3), yScale(y0 + fd_val * 3));
+                ctx.stroke();
+
+                ctx.fillStyle = '#3b82f6';
+                ctx.beginPath();
+                ctx.arc(p0.x, p0.y, 5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                if (method === 'forward' || method === 'backward') {
+                    const p1 = toCanvasCoords(x1, y1);
+                    ctx.fillStyle = '#f97316';
+                    ctx.beginPath();
+                    ctx.arc(p1.x, p1.y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                
+                // Update labels
+                x0Label.textContent = `Value: ${x0.toFixed(2)}`;
+                hLabel.textContent = `Value: ${h.toFixed(2)}`;
+            };
+
+            // --- Quadrature Plotting ---
+            const drawQuadPlot = () => {
+                xMin = -3;
+                xMax = 3;
+                yMin = -20;
+                yMax = 20;
+
+                const ctx = quadCtx;
+                drawGridAndAxes(ctx);
+                drawGraph(ctx);
+                
+                const a = parseFloat(aSlider.value);
+                const b = parseFloat(bSlider.value);
+                const n = parseInt(nSlider.value);
+                const method = document.querySelector('input[name="quad-method"]:checked').value;
+                const h = (b - a) / n;
+
+                const approxValue = quadrature(a, b, n, method);
+                const trueVal = trueIntegral(b) - trueIntegral(a);
+                const error = Math.abs(trueVal - approxValue);
+
+                if (method === 'simpson' && n % 2 !== 0) {
+                    approxValueSpan.textContent = "N must be even";
+                    quadErrorValueSpan.textContent = "N must be even";
+                } else {
+                    trueIntegralSpan.textContent = trueVal.toFixed(4);
+                    approxValueSpan.textContent = approxValue.toFixed(4);
+                    quadErrorValueSpan.textContent = error.toExponential(2);
+                }
+                
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'; // blue-500 with alpha
+                ctx.strokeStyle = '#3b82f6'; // blue-500
+                ctx.lineWidth = 1;
+
+                if (method === 'simpson') {
+                    if (n % 2 !== 0) return;
+                    // Draw parabolic segments for Simpson's rule
+                    for (let i = 0; i < n; i += 2) {
+                        const x_i = a + i * h;
+                        const x_i_plus_1 = a + (i + 1) * h;
+                        const x_i_plus_2 = a + (i + 2) * h;
+                        const y_i = func(x_i);
+                        const y_i_plus_1 = func(x_i_plus_1);
+                        const y_i_plus_2 = func(x_i_plus_2);
+
+                        const p1 = toCanvasCoords(x_i, y_i);
+                        const p2 = toCanvasCoords(x_i_plus_1, y_i_plus_1);
+                        const p3 = toCanvasCoords(x_i_plus_2, y_i_plus_2);
+
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, yScale(0));
+                        ctx.lineTo(p1.x, p1.y);
+                        ctx.quadraticCurveTo(p2.x, p2.y, p3.x, p3.y);
+                        ctx.lineTo(p3.x, yScale(0));
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                } else {
+                    for (let i = 0; i < n; i++) {
+                        const x_i = a + i * h;
+                        const x_i_plus_1 = a + (i + 1) * h;
+                        const y_i = func(x_i);
+                        const y_i_plus_1 = func(x_i_plus_1);
+
+                        let x_draw, y_draw, width_draw, height_draw;
+
+                        switch (method) {
+                            case 'left':
+                                x_draw = xScale(x_i);
+                                y_draw = yScale(Math.max(0, y_i));
+                                width_draw = xScale(x_i_plus_1) - x_draw;
+                                height_draw = yScale(Math.min(0, y_i)) - y_draw;
+                                ctx.fillRect(x_draw, y_draw, width_draw, height_draw);
+                                ctx.strokeRect(x_draw, y_draw, width_draw, height_draw);
+                                break;
+                            case 'right':
+                                x_draw = xScale(x_i_plus_1);
+                                y_draw = yScale(Math.max(0, y_i_plus_1));
+                                width_draw = xScale(x_i) - x_draw;
+                                height_draw = yScale(Math.min(0, y_i_plus_1)) - y_draw;
+                                ctx.fillRect(x_draw, y_draw, width_draw, height_draw);
+                                ctx.strokeRect(x_draw, y_draw, width_draw, height_draw);
+                                break;
+                            case 'midpoint':
+                                const midpoint = x_i + h / 2;
+                                const y_mid = func(midpoint);
+                                x_draw = xScale(x_i);
+                                y_draw = yScale(Math.max(0, y_mid));
+                                width_draw = xScale(x_i_plus_1) - x_draw;
+                                height_draw = yScale(Math.min(0, y_mid)) - y_draw;
+                                ctx.fillRect(x_draw, y_draw, width_draw, height_draw);
+                                ctx.strokeRect(x_draw, y_draw, width_draw, height_draw);
+                                break;
+                            case 'trapezoidal':
+                                const p1 = toCanvasCoords(x_i, y_i);
+                                const p2 = toCanvasCoords(x_i_plus_1, y_i_plus_1);
+                                const p3 = toCanvasCoords(x_i_plus_1, 0);
+                                const p4 = toCanvasCoords(x_i, 0);
+
+                                ctx.beginPath();
+                                ctx.moveTo(p1.x, p1.y);
+                                ctx.lineTo(p2.x, p2.y);
+                                ctx.lineTo(p3.x, p3.y);
+                                ctx.lineTo(p4.x, p4.y);
+                                ctx.closePath();
+                                ctx.fill();
+                                ctx.stroke();
+                                break;
+                        }
+                    }
+                }
+                
+                // Update labels
+                aLabel.textContent = `Value: ${a.toFixed(2)}`;
+                bLabel.textContent = `Value: ${b.toFixed(2)}`;
+                nLabel.textContent = `Value: ${n}`;
+            };
+
+            // --- Runge-Kutta Plotting ---
+            const drawRKPlot = () => {
+                xMin = 0;
+                xMax = 5;
+                yMin = -1;
+                yMax = 1.5;
+
+                const ctx = rkCtx;
+                drawGridAndAxes(ctx);
+
+                const x0 = parseFloat(x0RKSlider.value);
+                const y0 = parseFloat(y0RKSlider.value);
+                const h = parseFloat(hRKSlider.value);
+                const steps = parseInt(stepsRKSlider.value);
+                const method = document.querySelector('input[name="rk-method"]:checked').value;
+
+                // Draw true solution
+                ctx.strokeStyle = '#10b981'; // green-500
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let i = 0; i < width; i++) {
+                    const x = xMin + (i / width) * (xMax - xMin);
+                    const y = trueODE(x, x0, y0);
+                    const p = toCanvasCoords(x, y);
+                    if (i === 0) {
+                        ctx.moveTo(p.x, p.y);
+                    } else {
+                        ctx.lineTo(p.x, p.y);
+                    }
+                }
+                ctx.stroke();
+
+                // Draw RK approximation
+                const approxPoints = rungeKutta(x0, y0, h, steps, method);
+                ctx.strokeStyle = '#3b82f6'; // blue-500
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                approxPoints.forEach((point, i) => {
+                    const p = toCanvasCoords(point.x, point.y);
+                    if (i === 0) {
+                        ctx.moveTo(p.x, p.y);
+                    } else {
+                        ctx.lineTo(p.x, p.y);
+                    }
+                });
+                ctx.stroke();
+                
+                // Draw points
+                ctx.fillStyle = '#3b82f6';
+                approxPoints.forEach(point => {
+                    const p = toCanvasCoords(point.x, point.y);
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+
+                // Update results display
+                const final_x = approxPoints[approxPoints.length - 1].x;
+                const final_y = approxPoints[approxPoints.length - 1].y;
+                const true_final_y = trueODE(final_x, x0, y0);
+                const error = Math.abs(true_final_y - final_y);
+                
+                trueRKValueSpan.textContent = true_final_y.toFixed(6);
+                approxRKValueSpan.textContent = final_y.toFixed(6);
+                rkErrorValueSpan.textContent = error.toExponential(4);
+
+                // Update labels
+                x0RKLabel.textContent = `Value: ${x0.toFixed(2)}`;
+                y0RKLabel.textContent = `Value: ${y0.toFixed(2)}`;
+                hRKLabel.textContent = `Value: ${h.toFixed(2)}`;
+                stepsRKLabel.textContent = `Value: ${steps}`;
+            };
+            
+            // --- Tab Switching Logic ---
+            const showTab = (tabId) => {
+                diffTab.classList.remove('active');
+                quadTab.classList.remove('active');
+                rkTab.classList.remove('active');
+                diffContent.classList.add('hidden');
+                quadContent.classList.add('hidden');
+                rkContent.classList.add('hidden');
+                
+                if (tabId === 'diff') {
+                    diffTab.classList.add('active');
+                    diffContent.classList.remove('hidden');
+                    width = diffCanvas.clientWidth;
+                    height = diffCanvas.clientHeight;
+                    diffCanvas.width = width;
+                    diffCanvas.height = height;
+                    drawDiffPlot();
+                } else if (tabId === 'quad') {
+                    quadTab.classList.add('active');
+                    quadContent.classList.remove('hidden');
+                    width = quadCanvas.clientWidth;
+                    height = quadCanvas.clientHeight;
+                    quadCanvas.width = width;
+                    quadCanvas.height = height;
+                    drawQuadPlot();
+                } else {
+                    rkTab.classList.add('active');
+                    rkContent.classList.remove('hidden');
+                    width = rkCanvas.clientWidth;
+                    height = rkCanvas.clientHeight;
+                    rkCanvas.width = width;
+                    rkCanvas.height = height;
+                    drawRKPlot();
+                }
+            };
+            
+            // --- Event Listeners ---
+            diffTab.addEventListener('click', () => showTab('diff'));
+            quadTab.addEventListener('click', () => showTab('quad'));
+            rkTab.addEventListener('click', () => showTab('rk'));
+
+            // Differentiation listeners
+            x0Slider.addEventListener('input', drawDiffPlot);
+            hSlider.addEventListener('input', drawDiffPlot);
+            methodRadios.forEach(radio => radio.addEventListener('change', drawDiffPlot));
+
+            // Quadrature listeners
+            aSlider.addEventListener('input', () => {
+                if (parseFloat(aSlider.value) >= parseFloat(bSlider.value)) {
+                    bSlider.value = parseFloat(aSlider.value) + 0.1;
+                }
+                drawQuadPlot();
+            });
+            bSlider.addEventListener('input', () => {
+                if (parseFloat(bSlider.value) <= parseFloat(aSlider.value)) {
+                    aSlider.value = parseFloat(bSlider.value) - 0.1;
+                }
+                drawQuadPlot();
+            });
+            
+            nSlider.addEventListener('input', () => {
+                const method = document.querySelector('input[name="quad-method"]:checked').value;
+                if (method === 'simpson') {
+                    let n = parseInt(nSlider.value);
+                    if (n % 2 !== 0) {
+                        n = n > 1 ? n - 1 : 2; // Snap to the nearest even number
+                        nSlider.value = n;
+                    }
+                }
+                drawQuadPlot();
+            });
+
+            quadMethodRadios.forEach(radio => radio.addEventListener('change', () => {
+                const method = radio.value;
+                const n = parseInt(nSlider.value);
+                if (method === 'simpson' && n % 2 !== 0) {
+                    nSlider.value = n > 1 ? n - 1 : 2;
+                }
+                drawQuadPlot();
+            }));
+
+            // Runge-Kutta listeners
+            x0RKSlider.addEventListener('input', drawRKPlot);
+            y0RKSlider.addEventListener('input', drawRKPlot);
+            hRKSlider.addEventListener('input', drawRKPlot);
+            stepsRKSlider.addEventListener('input', drawRKPlot);
+            rkMethodRadios.forEach(radio => radio.addEventListener('change', drawRKPlot));
+
+            window.addEventListener('resize', () => {
+                if (!diffContent.classList.contains('hidden')) {
+                    width = diffCanvas.clientWidth;
+                    height = diffCanvas.clientHeight;
+                    diffCanvas.width = width;
+                    diffCanvas.height = height;
+                    drawDiffPlot();
+                } else if (!quadContent.classList.contains('hidden')) {
+                    width = quadCanvas.clientWidth;
+                    height = quadCanvas.clientHeight;
+                    quadCanvas.width = width;
+                    quadCanvas.height = height;
+                    drawQuadPlot();
+                } else {
+                    width = rkCanvas.clientWidth;
+                    height = rkCanvas.clientHeight;
+                    rkCanvas.width = width;
+                    rkCanvas.height = height;
+                    drawRKPlot();
+                }
+            });
+            
+            // Initial render
+            showTab('diff');
+        });
+    </script>
+
+</body>
+</html>
