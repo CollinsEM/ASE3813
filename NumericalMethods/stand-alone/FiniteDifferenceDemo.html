@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finite Difference Differentiation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      }
+    </style>
+  </head>
+  <body class="p-6 md:p-10">
+    
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-8 space-y-8">
+      
+      <h1 class="text-3xl md:text-4xl font-extrabold text-center text-gray-900 mb-6">Finite Difference Differentiation</h1>
+      
+      <div class="flex flex-col md:flex-row gap-6">
+        <!-- Canvas and Details -->
+        <div class="w-full md:w-3/4 bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-inner relative">
+          <canvas id="diffCanvas" class="w-full h-96 bg-white rounded-lg"></canvas>
+          <div class="absolute top-4 right-4 p-3 bg-white bg-opacity-80 rounded-lg shadow-md text-sm">
+            <div class="flex items-center space-x-2">
+              <div class="w-4 h-1.5 rounded-full bg-green-500"></div>
+              <span>Function $f(x)$</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="w-4 h-1.5 rounded-full bg-red-500"></div>
+              <span>True Derivative $f'(x)$</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="w-4 h-1.5 rounded-full bg-blue-500"></div>
+              <span>Finite Difference</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="w-4 h-1.5 rounded-full" style="background-color: #fca5a5;"></div>
+              <span>Error $|f'(x) - \text{FD}(x)|$</span>
+            </div>
+          </div>
+          <div id="diff-results" class="mt-4 p-4 bg-white rounded-lg shadow-md border border-gray-100 space-y-2">
+            <p class="text-gray-800 font-medium">True Derivative at $x_0$: <span id="true-derivative" class="font-mono text-green-600"></span></p>
+            <p class="text-gray-800 font-medium">Finite Difference at $x_0$: <span id="fd-value" class="font-mono text-blue-600"></span></p>
+            <p class="text-gray-800 font-medium">Error: <span id="error-value" class="font-mono text-red-600"></span></p>
+          </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="w-full md:w-1/4 bg-gray-50 rounded-lg p-6 space-y-6 shadow-md border border-gray-200">
+          <div>
+            <label for="x0-slider" class="block text-lg font-bold mb-2">Evaluation Point $x_0$</label>
+            <input type="range" id="x0-slider" min="-3" max="3" value="0" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <span id="x0-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+          </div>
+          
+          <div>
+            <label for="h-slider" class="block text-lg font-bold mb-2">Step Size $h$</label>
+            <input type="range" id="h-slider" min="0.01" max="2" value="1" step="0.01" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <span id="h-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+          </div>
+          
+          <div>
+            <p class="text-lg font-bold mb-2">Finite Difference Method</p>
+            <div class="flex flex-col space-y-2">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="method" value="forward" checked class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Forward Difference</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="method" value="backward" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Backward Difference</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="method" value="central" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Central Difference</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script type="text/javascript">
+      document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('diffCanvas');
+        const x0Slider = document.getElementById('x0-slider');
+        const hSlider = document.getElementById('h-slider');
+        const x0Label = document.getElementById('x0-label');
+        const hLabel = document.getElementById('h-label');
+        const fdValueSpan = document.getElementById('fd-value');
+        const trueDerivativeSpan = document.getElementById('true-derivative');
+        const errorValueSpan = document.getElementById('error-value');
+        const methodRadios = document.querySelectorAll('input[name="method"]');
+        
+        const setupCanvas = (canvas, minX, maxX, minY, maxY) => {
+          const width = canvas.clientWidth;
+          const height = canvas.clientHeight;
+          canvas.width = width;
+          canvas.height = height;
+          
+          const xScale = (x) => (x - minX) / (maxX - minX) * width;
+          const yScale = (y) => height - (y - minY) / (maxY - minY) * height;
+          const toCanvasCoords = (x, y) => ({ x: xScale(x), y: yScale(y) });
+          
+          return { ctx: canvas.getContext('2d'), width, height, xScale, yScale, toCanvasCoords };
+        };
+        
+        const drawGridAndAxes = (ctx, width, height, xScale, yScale, xMin, xMax, yMin, yMax) => {
+          ctx.clearRect(0, 0, width, height);
+          ctx.strokeStyle = '#e5e7eb';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, yScale(0));
+          ctx.lineTo(width, yScale(0));
+          ctx.moveTo(xScale(0), 0);
+          ctx.lineTo(xScale(0), height);
+          ctx.stroke();
+          
+          ctx.fillStyle = '#6b7280';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          for (let i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+            if (i !== 0) {
+              ctx.fillText(i, xScale(i), yScale(0) + 5);
+            }
+          }
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          for (let i = Math.ceil(yMin / 5) * 5; i <= Math.floor(yMax / 5) * 5; i += 5) {
+            if (i !== 0) {
+              ctx.fillText(i, xScale(0) - 5, yScale(i));
+            }
+          }
+        };
+        
+        const func = (x) => (x ** 3) - (6 * x ** 2) + (5 * x) + (10 * Math.sin(3 * x));
+        const trueDerivative = (x) => (3 * x ** 2) - (12 * x) + 5 + (30 * Math.cos(3 * x));
+        
+        const finiteDifference = (x0, h, method) => {
+          switch (method) {
+          case 'forward': return (func(x0 + h) - func(x0)) / h;
+          case 'backward': return (func(x0) - func(x0 - h)) / h;
+          case 'central': return (func(x0 + h) - func(x0 - h)) / (2 * h);
+          default: return 0;
+          }
+        };
+        
+        const drawDiffPlot = () => {
+          const xMin = -3, xMax = 3, yMin = -20, yMax = 20;
+          const { ctx, width, height, xScale, yScale, toCanvasCoords } = setupCanvas(canvas, xMin, xMax, yMin, yMax);
+          drawGridAndAxes(ctx, width, height, xScale, yScale, xMin, xMax, yMin, yMax);
+          
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let i = 0; i < width; i++) {
+            const x = xMin + (i / width) * (xMax - xMin);
+            const y = func(x);
+            const p = toCanvasCoords(x, y);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+          
+          const x0 = parseFloat(x0Slider.value);
+          const h = parseFloat(hSlider.value);
+          const method = document.querySelector('input[name="method"]:checked').value;
+          
+          ctx.strokeStyle = '#fca5a5';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          for (let i = 0; i < width; i++) {
+            const x = xMin + (i / width) * (xMax - xMin);
+            const error = Math.abs(trueDerivative(x) - finiteDifference(x, h, method));
+            const p = toCanvasCoords(x, error);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+          
+          const y0 = func(x0);
+          const fd_val = finiteDifference(x0, h, method);
+          const true_val = trueDerivative(x0);
+          const error = Math.abs(true_val - fd_val);
+          
+          trueDerivativeSpan.textContent = true_val.toFixed(4);
+          fdValueSpan.textContent = fd_val.toFixed(4);
+          errorValueSpan.textContent = error.toExponential(2);
+          
+          const p0 = toCanvasCoords(x0, y0);
+          
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(xScale(x0 - 3), yScale(y0 + true_val * -3));
+          ctx.lineTo(xScale(x0 + 3), yScale(y0 + true_val * 3));
+          ctx.stroke();
+          
+          let x1, y1;
+          switch (method) {
+          case 'forward':
+            x1 = x0 + h;
+            y1 = func(x1);
+            break;
+          case 'backward':
+            x1 = x0 - h;
+            y1 = func(x1);
+            break;
+          case 'central':
+            const x_left = x0 - h;
+            const y_left = func(x_left);
+            const x_right = x0 + h;
+            const y_right = func(x_right);
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.arc(toCanvasCoords(x_left, y_left).x, toCanvasCoords(x_left, y_left).y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(toCanvasCoords(x_right, y_right).x, toCanvasCoords(x_right, y_right).y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            x1 = x_right;
+            y1 = y_right;
+            break;
+          }
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(xScale(x0 - 3), yScale(y0 + fd_val * -3));
+          ctx.lineTo(xScale(x0 + 3), yScale(y0 + fd_val * 3));
+          ctx.stroke();
+          ctx.fillStyle = '#3b82f6';
+          ctx.beginPath();
+          ctx.arc(p0.x, p0.y, 5, 0, 2 * Math.PI);
+          ctx.fill();
+          if (method === 'forward' || method === 'backward') {
+            const p1 = toCanvasCoords(x1, y1);
+            ctx.fillStyle = '#f97316';
+            ctx.beginPath();
+            ctx.arc(p1.x, p1.y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+          x0Label.textContent = `Value: ${x0.toFixed(2)}`;
+          hLabel.textContent = `Value: ${h.toFixed(2)}`;
+        };
+        x0Slider.addEventListener('input', drawDiffPlot);
+        hSlider.addEventListener('input', drawDiffPlot);
+        methodRadios.forEach(radio => radio.addEventListener('change', drawDiffPlot));
+        drawDiffPlot();
+      });
+    </script>
+  </body>
+</html>
