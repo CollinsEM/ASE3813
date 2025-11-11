@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newton-Raphson Method</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      }
+      .message-box {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      }
+    </style>
+  </head>
+  <body class="p-6 md:p-10">
+    
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-8 space-y-8">
+      
+      <h1 class="text-3xl md:text-4xl font-extrabold text-center text-gray-900 mb-6">Newton-Raphson Method</h1>
+      
+      <div class="flex flex-col md:flex-row gap-6">
+        <!-- Canvas and Details -->
+        <div class="w-full md:w-3/4 bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-inner relative">
+          <canvas id="newtonCanvas" class="w-full h-96 bg-white rounded-lg"></canvas>
+          <div class="absolute top-4 right-4 p-3 bg-white bg-opacity-80 rounded-lg shadow-md text-sm">
+            <div class="flex items-center space-x-2">
+              <div class="w-4 h-1.5 rounded-full bg-green-500"></div>
+              <span>Function $f(x)$</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="w-4 h-1.5 rounded-full bg-blue-500"></div>
+              <span>Tangent Line</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
+              <span>Guess $x_n$</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="w-2.5 h-2.5 rounded-full bg-purple-500"></div>
+              <span>Next Guess $x_{n+1}$</span>
+            </div>
+          </div>
+          <div id="newton-results" class="mt-4 p-4 bg-white rounded-lg shadow-md border border-gray-100 space-y-2">
+            <p class="text-gray-800 font-medium">Iteration: <span id="iteration-count" class="font-mono text-gray-600">0</span></p>
+            <p class="text-gray-800 font-medium">Current Guess $x_n$: <span id="current-guess" class="font-mono text-purple-600"></span></p>
+            <p class="text-gray-800 font-medium">Function Value $f(x_n)$: <span id="fx-value" class="font-mono text-green-600"></span></p>
+          </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="w-full md:w-1/4 bg-gray-50 rounded-lg p-6 space-y-6 shadow-md border border-gray-200">
+          <div>
+            <label for="x0-slider" class="block text-lg font-bold mb-2">Initial Guess $x_0$</label>
+            <input type="range" id="x0-slider" min="-3" max="3" value="3" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <span id="x0-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+          </div>
+          <div>
+            <label for="offset-slider" class="block text-lg font-bold mb-2">Vertical Offset $c$</label>
+            <input type="range" id="offset-slider" min="-20" max="20" value="0" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <span id="offset-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+          </div>
+          
+          <button id="step-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 shadow-md">
+            Take a Step
+          </button>
+          <button id="reset-button" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 shadow-md">
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Message Box -->
+    <div id="message-box" class="message-box hidden bg-yellow-200 text-yellow-800 rounded-lg shadow-xl p-4 md:p-6 text-center max-w-sm border border-yellow-300">
+      <p id="message-text" class="mb-4"></p>
+      <button id="close-message" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-1 px-3 rounded-lg text-sm">Close</button>
+    </div>
+    
+    <script type="text/javascript">
+      document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('newtonCanvas');
+        const x0Slider = document.getElementById('x0-slider');
+        const x0Label = document.getElementById('x0-label');
+        const offsetSlider = document.getElementById('offset-slider');
+        const offsetLabel = document.getElementById('offset-label');
+        const stepButton = document.getElementById('step-button');
+        const resetButton = document.getElementById('reset-button');
+        const iterationCountSpan = document.getElementById('iteration-count');
+        const currentGuessSpan = document.getElementById('current-guess');
+        const fxValueSpan = document.getElementById('fx-value');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const closeMessageButton = document.getElementById('close-message');
+        
+        let currentGuess, iteration;
+        const history = [];
+        
+        // Updated to a fourth-order polynomial
+        const func = (x) => x**4 - 3*x**3 - 2*x**2 + 10*x - 4;
+        const trueDerivative = (x) => 4*x**3 - 9*x**2 - 4*x + 10;
+        
+        const showMessage = (message) => {
+          messageText.textContent = message;
+          messageBox.classList.remove('hidden');
+        };
+        
+        const hideMessage = () => {
+          messageBox.classList.add('hidden');
+        };
+        
+        const setupCanvas = (canvas, minX, maxX, minY, maxY) => {
+          const width = canvas.clientWidth;
+          const height = canvas.clientHeight;
+          canvas.width = width;
+          canvas.height = height;
+          const xScale = (x) => (x - minX) / (maxX - minX) * width;
+          const yScale = (y) => height - (y - minY) / (maxY - minY) * height;
+          const toCanvasCoords = (x, y) => ({ x: xScale(x), y: yScale(y) });
+          return { ctx: canvas.getContext('2d'), width, height, xScale, yScale, toCanvasCoords };
+        };
+        
+        const drawGridAndAxes = (ctx, width, height, xScale, yScale, xMin, xMax, yMin, yMax) => {
+          ctx.clearRect(0, 0, width, height);
+          ctx.strokeStyle = '#e5e7eb';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, yScale(0));
+          ctx.lineTo(width, yScale(0));
+          ctx.moveTo(xScale(0), 0);
+          ctx.lineTo(xScale(0), height);
+          ctx.stroke();
+          
+          ctx.fillStyle = '#6b7280';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          for (let i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+            if (i !== 0) {
+              ctx.fillText(i, xScale(i), yScale(0) + 5);
+            }
+          }
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          for (let i = Math.ceil(yMin / 5) * 5; i <= Math.floor(yMax / 5) * 5; i += 5) {
+            if (i !== 0) {
+              ctx.fillText(i, xScale(0) - 5, yScale(i));
+            }
+          }
+        };
+        
+        const drawPlot = () => {
+          const xMin = -3, xMax = 3;
+          const offset = parseFloat(offsetSlider.value);
+          const yMin = -20 + offset, yMax = 20 + offset;
+          const { ctx, width, height, xScale, yScale, toCanvasCoords } = setupCanvas(canvas, xMin, xMax, yMin, yMax);
+          drawGridAndAxes(ctx, width, height, xScale, yScale, xMin, xMax, yMin, yMax);
+          
+          // Draw the function f(x)
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let i = 0; i < width; i++) {
+            const x = xMin + (i / width) * (xMax - xMin);
+            const y = func(x) + offset;
+            const p = toCanvasCoords(x, y);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+          
+          // Draw the iteration history
+          ctx.fillStyle = '#a855f7';
+          history.forEach(guess => {
+            ctx.beginPath();
+            const p = toCanvasCoords(guess, 0);
+            ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+          });
+          
+          // If a guess exists, draw tangent line and details
+          if (currentGuess !== null) {
+            const xn = currentGuess;
+            const fxn = func(xn) + offset;
+            const dfxn = trueDerivative(xn);
+            
+            // Check for zero derivative to avoid division by zero
+            if (Math.abs(dfxn) < 1e-6) {
+              // We do not draw anything if derivative is near zero
+              updateLabels();
+              return;
+            }
+            
+            const nextGuess = xn - (fxn) / dfxn;
+            
+            // Draw next guess point
+            ctx.fillStyle = '#a855f7';
+            ctx.beginPath();
+            const nextPoint = toCanvasCoords(nextGuess, 0);
+            ctx.arc(nextPoint.x, nextPoint.y, 4, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Draw current guess point
+            ctx.fillStyle = '#a855f7';
+            ctx.beginPath();
+            const point = toCanvasCoords(xn, fxn);
+            ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Draw vertical line from point on function to x-axis
+            ctx.strokeStyle = '#a855f7';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            const startPoint = toCanvasCoords(xn, fxn);
+            const endPoint = toCanvasCoords(xn, 0);
+            ctx.moveTo(startPoint.x, startPoint.y);
+            ctx.lineTo(endPoint.x, endPoint.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            
+            // Draw tangent line
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const lineStart = toCanvasCoords(xMin, fxn + dfxn * (xMin - xn));
+            const lineEnd = toCanvasCoords(xMax, fxn + dfxn * (xMax - xn));
+            ctx.moveTo(lineStart.x, lineStart.y);
+            ctx.lineTo(lineEnd.x, lineEnd.y);
+            ctx.stroke();
+          }
+          
+          updateLabels();
+        };
+        
+        const updateLabels = () => {
+          x0Label.textContent = `Value: ${parseFloat(x0Slider.value).toFixed(2)}`;
+          offsetLabel.textContent = `Value: ${parseFloat(offsetSlider.value).toFixed(2)}`;
+          iterationCountSpan.textContent = iteration;
+          if (currentGuess !== null) {
+            currentGuessSpan.textContent = currentGuess.toFixed(6);
+            fxValueSpan.textContent = (func(currentGuess) + parseFloat(offsetSlider.value)).toExponential(4);
+          } else {
+            currentGuessSpan.textContent = 'N/A';
+            fxValueSpan.textContent = 'N/A';
+          }
+        };
+        
+        const init = () => {
+          currentGuess = parseFloat(x0Slider.value);
+          iteration = 0;
+          history.length = 0; // Clear history
+          hideMessage();
+          drawPlot();
+        };
+        
+        const takeStep = () => {
+          if (currentGuess === null) return;
+          
+          const fxn = func(currentGuess);
+          const dfxn = trueDerivative(currentGuess);
+          
+          if (Math.abs(dfxn) < 1e-6) {
+            showMessage('Derivative is too close to zero. Cannot continue.');
+            return;
+          }
+          
+          const offset = parseFloat(offsetSlider.value);
+          const nextGuess = currentGuess - (fxn + offset) / dfxn;
+          
+          history.push(currentGuess);
+          currentGuess = nextGuess;
+          iteration++;
+          drawPlot();
+        };
+        
+        x0Slider.addEventListener('input', init);
+        offsetSlider.addEventListener('input', drawPlot);
+        stepButton.addEventListener('click', takeStep);
+        resetButton.addEventListener('click', init);
+        closeMessageButton.addEventListener('click', hideMessage);
+        
+        init();
+      });
+    </script>
+  </body>
+</html>

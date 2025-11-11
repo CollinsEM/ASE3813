@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runge-Kutta Integration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      }
+    </style>
+  </head>
+  <body class="p-6 md:p-10">
+    
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-2xl p-6 md:p-8 space-y-8">
+      
+      <h1 class="text-3xl md:text-4xl font-extrabold text-center text-gray-900 mb-6">Runge-Kutta Integration</h1>
+      
+      <div class="flex flex-col md:flex-row gap-6">
+        <!-- Canvas and Details -->
+        <div class="w-full md:w-3/4 bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-inner relative">
+          <canvas id="rkCanvas" class="w-full h-96 bg-white rounded-lg"></canvas>
+          <div class="absolute top-4 right-4 p-3 bg-white bg-opacity-80 rounded-lg shadow-md text-sm">
+            <div class="flex items-center space-x-2">
+              <div class="w-4 h-1.5 rounded-full bg-green-500"></div>
+              <span>True Solution</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="w-4 h-1.5 rounded-full bg-blue-500"></div>
+              <span>RK Approximation</span>
+            </div>
+            <div id="rk-legend-details" class="space-y-1 mt-2 hidden">
+              <div class="flex items-center space-x-2">
+                <div class="w-4 h-1.5 rounded-full bg-orange-500"></div>
+                <span>$k_1$ (Euler)</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <div class="w-4 h-1.5 rounded-full bg-purple-500"></div>
+                <span>$k_2$</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <div class="w-4 h-1.5 rounded-full bg-red-500"></div>
+                <span>$k_3$</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <div class="w-4 h-1.5 rounded-full bg-cyan-500"></div>
+                <span>$k_4$</span>
+              </div>
+            </div>
+          </div>
+          <div id="rk-results" class="mt-4 p-4 bg-white rounded-lg shadow-md border border-gray-100 space-y-2">
+            <p class="text-gray-800 font-medium">True Value at Final Step: <span id="true-rk-value" class="font-mono text-green-600"></span></p>
+            <p class="text-gray-800 font-medium">Approximation at Final Step: <span id="approx-rk-value" class="font-mono text-blue-600"></span></p>
+            <p class="text-gray-800 font-medium">Error: <span id="rk-error-value" class="font-mono text-red-600"></span></p>
+          </div>
+        </div>
+        
+        <!-- Controls -->
+        <div class="w-full md:w-1/4 bg-gray-50 rounded-lg p-6 space-y-6 shadow-md border border-gray-200">
+          <div>
+            <label for="y0-rk-slider" class="block text-lg font-bold mb-2">Initial Condition $y_0$</label>
+            <input type="range" id="y0-rk-slider" min="0" max="2" value="1" step="0.1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <span id="y0-rk-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+          </div>
+          <div>
+            <label for="h-rk-slider" class="block text-lg font-bold mb-2">Step Size $h$</label>
+            <input type="range" id="h-rk-slider" min="0.01" max="1" value="0.5" step="0.01" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <span id="h-rk-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+          </div>
+          <div>
+            <label for="steps-rk-slider" class="block text-lg font-bold mb-2">Number of Steps</label>
+            <input type="range" id="steps-rk-slider" min="1" max="100" value="10" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+            <span id="steps-rk-label" class="text-sm text-gray-600 mt-1 block text-center font-mono"></span>
+          </div>
+          
+          <div>
+            <p class="text-lg font-bold mb-2">Runge-Kutta Method</p>
+            <div class="flex flex-col space-y-2">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="ForwardEuler-RK1" checked class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Forward Euler (RK1)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="Midpoint-RK2" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Midpoint (RK2)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="Heun-RK2" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Heun (RK2)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="Heun-RK3" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Heun (RK3)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="VanDerHouwenWray-RK3" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Van Der Houwen/Wray (RK3)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="Ralston-RK3" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Ralston (RK3)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="SSP-RK3" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">SSP (RK3)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="Kutta-RK3" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Kutta (RK3)</span>
+              </label>
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input type="radio" name="rk-method" value="Classic-RK4" class="form-radio text-blue-600 focus:ring-blue-500 rounded-full">
+                <span class="text-sm text-gray-700">Classic (RK4)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script type="text/javascript">
+      document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('rkCanvas');
+        const y0RKSlider = document.getElementById('y0-rk-slider');
+        const hRKSlider = document.getElementById('h-rk-slider');
+        const stepsRKSlider = document.getElementById('steps-rk-slider');
+        const y0RKLabel = document.getElementById('y0-rk-label');
+        const hRKLabel = document.getElementById('h-rk-label');
+        const stepsRKLabel = document.getElementById('steps-rk-label');
+        const trueRKValueSpan = document.getElementById('true-rk-value');
+        const approxRKValueSpan = document.getElementById('approx-rk-value');
+        const rkErrorValueSpan = document.getElementById('rk-error-value');
+        const rkMethodRadios = document.querySelectorAll('input[name="rk-method"]');
+        const rkLegendDetails = document.getElementById('rk-legend-details');
+        
+        const plot_config = { xMin: 0, xMax: 5, yMin: -1, yMax: 1.5 };
+        
+        const setupCanvas = (canvas, minX, maxX, minY, maxY) => {
+          const width = canvas.clientWidth;
+          const height = canvas.clientHeight;
+          canvas.width = width;
+          canvas.height = height;
+          const xScale = (x) => (x - minX) / (maxX - minX) * width;
+          const yScale = (y) => height - (y - minY) / (maxY - minY) * height;
+          const toCanvasCoords = (x, y) => ({ x: xScale(x), y: yScale(y) });
+          return { ctx: canvas.getContext('2d'), width, height, xScale, yScale, toCanvasCoords };
+        };
+        
+        const drawGridAndAxes = (ctx, width, height, xScale, yScale, xMin, xMax, yMin, yMax) => {
+          ctx.clearRect(0, 0, width, height);
+          ctx.strokeStyle = '#e5e7eb';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, yScale(0));
+          ctx.lineTo(width, yScale(0));
+          ctx.moveTo(xScale(0), 0);
+          ctx.lineTo(xScale(0), height);
+          ctx.stroke();
+          ctx.fillStyle = '#6b7280';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          for (let i = Math.ceil(xMin); i <= Math.floor(xMax); i++) {
+            if (i !== 0) {
+              ctx.fillText(i, xScale(i), yScale(0) + 5);
+            }
+          }
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          for (let i = Math.ceil(yMin / 5) * 5; i <= Math.floor(yMax / 5) * 5; i += 5) {
+            if (i !== 0) {
+              ctx.fillText(i, xScale(0) - 5, yScale(i));
+            }
+          }
+        };
+        
+        const f_ode = (x, y) => -2 * y + Math.cos(x);
+        const trueODE = (x, y0) => {
+          const C = y0 - (2 / 5) * Math.cos(0) - (1 / 5) * Math.sin(0);
+          return (2 / 5) * Math.cos(x) + (1 / 5) * Math.sin(x) + C * Math.exp(-2 * x);
+        };
+        
+        const rungeKutta = (x0, y0, h, steps, method) => {
+          let x = x0;
+          let y = y0;
+          const points = [{ x, y }];
+          for (let i = 0; i < steps; i++) {
+            switch (method) {
+            case 'ForwardEuler-RK1': { const k1 = f_ode(x, y); x += h; y += h * k1; break; }
+            case 'Midpoint-RK2': { const k1 = f_ode(x, y); const k2 = f_ode(x + h/2, y + h/2 * k1); x += h; y += h * k2; break; }
+            case 'Heun-RK2': { const k1 = f_ode(x, y); const k2 = f_ode(x + h, y + h * k1); x += h; y += h * (k1 + k2) / 2; break; }
+            case 'Heun-RK3': { const k1 = f_ode(x, y); const k2 = f_ode(x + h/3, y + h/3 * k1); const k3 = f_ode(x + 2*h/3, y + 2*h/3 * k2); x += h; y += h * (k1 + 3 * k3) / 4; break; }
+            case 'VanDerHouwenWray-RK3': { const k1 = f_ode(x, y); const k2 = f_ode(x + 8*h/15, y + 8*h/15 * k1); const k3 = f_ode(x + 2*h/3, y + h/4 * k1 + 5*h/12 * k2); x += h; y += h * (1/4 * k1 + 0 * k2 + 3/4 * k3); break; }
+            case 'Ralston-RK3': { const k1 = f_ode(x, y); const k2 = f_ode(x + h/2, y + h/2 * k1); const k3 = f_ode(x + 3*h/4, y + 3*h/4 * k2); x += h; y += h * (2/9 * k1 + 1/3 * k2 + 4/9 * k3); break; }
+            case 'SSP-RK3': { const k1 = f_ode(x, y); const k2 = f_ode(x + h, y + h * k1); const k3 = f_ode(x + h/2, y + h/4 * k1 + h/4 * k2); x += h; y += h * (1/6 * k1 + 1/6 * k2 + 2/3 * k3); break; }
+            case 'Kutta-RK3': { const k1 = f_ode(x, y); const k2 = f_ode(x + h/2, y + h/2 * k1); const k3 = f_ode(x + h, y - h * k1 + 2 * h * k2); x += h; y += h * (k1 + 4 * k2 + k3) / 6; break; }
+            case 'Classic-RK4': { const k1 = h * f_ode(x, y); const k2 = h * f_ode(x + h / 2, y + k1 / 2); const k3 = h * f_ode(x + h / 2, y + k2 / 2); const k4 = h * f_ode(x + h, y + k3); x += h; y += h * (k1 + 2 * k2 + 2 * k3 + k4) / 6; break; }
+            }
+            points.push({ x, y });
+          }
+          return points;
+        };
+        
+        const drawRKPlot = () => {
+          const { ctx, width, height, xScale, yScale, toCanvasCoords } = setupCanvas(canvas, plot_config.xMin, plot_config.xMax, plot_config.yMin, plot_config.yMax);
+          drawGridAndAxes(ctx, width, height, xScale, yScale, plot_config.xMin, plot_config.xMax, plot_config.yMin, plot_config.yMax);
+          
+          const x0 = 0;
+          const y0 = parseFloat(y0RKSlider.value);
+          const h = parseFloat(hRKSlider.value);
+          const steps = parseInt(stepsRKSlider.value);
+          const method = document.querySelector('input[name="rk-method"]:checked').value;
+          const showDetails = steps < 4;
+          rkLegendDetails.classList.toggle('hidden', !showDetails);
+          
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let i = 0; i < width; i++) {
+            const x = plot_config.xMin + (i / width) * (plot_config.xMax - plot_config.xMin);
+            const y = trueODE(x, y0);
+            const p = toCanvasCoords(x, y);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke();
+          
+          let current_x = x0;
+          let current_y = y0;
+          const approxPoints = [{ x: current_x, y: current_y }];
+          
+          const drawRKStepVisualization = (fromX, fromY, toX, toY, color) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(xScale(fromX), yScale(fromY));
+            ctx.lineTo(xScale(toX), yScale(toY));
+            ctx.stroke();
+            const slope = (toY - fromY) / (toX - fromX);
+            const segmentLength = (plot_config.xMax - plot_config.xMin) / 100;
+            const dx = segmentLength / Math.sqrt(1 + slope*slope);
+            const dy = slope * dx;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(xScale(toX - dx / 2), yScale(toY - dy / 2));
+            ctx.lineTo(xScale(toX + dx / 2), yScale(toY + dy / 2));
+            ctx.stroke();
+          };
+          
+          for (let i = 0; i < steps; i++) {
+            if (showDetails) {
+              const next_x = current_x + h;
+              if (method === 'ForwardEuler-RK1') {
+                const k1_val = f_ode(current_x, current_y);
+                const next_y_extrapolated = current_y + h * k1_val;
+                drawRKStepVisualization(current_x, current_y, next_x, next_y_extrapolated, '#f97316');
+                current_x = next_x;
+                current_y = next_y_extrapolated;
+              } else if (method === 'Midpoint-RK2') {
+                const k1_val = f_ode(current_x, current_y);
+                const k2_val = f_ode(current_x + h / 2, current_y + h / 2 * k1_val);
+                drawRKStepVisualization(current_x, current_y, current_x + h / 2, current_y + h / 2 * k1_val, '#f97316');
+                drawRKStepVisualization(current_x, current_y, current_x + h, current_y + h * k2_val, '#a855f7');
+                current_x = next_x;
+                current_y = current_y + h * k2_val;
+              } else if (method === 'Classic-RK4') {
+                const k1 = h * f_ode(current_x, current_y);
+                const k2 = h * f_ode(current_x + h / 2, current_y + k1 / 2);
+                const k3 = h * f_ode(current_x + h / 2, current_y + k2 / 2);
+                const k4 = h * f_ode(current_x + h, current_y + k3);
+                drawRKStepVisualization(current_x, current_y, current_x + h/2, current_y + k1 / 2, '#f97316');
+                drawRKStepVisualization(current_x, current_y, current_x + h/2, current_y + k2 / 2, '#a855f7');
+                drawRKStepVisualization(current_x, current_y, current_x + h/2, current_y + k3 / 2, '#ef4444');
+                drawRKStepVisualization(current_x, current_y, current_x + h, current_y + k4, '#06b6d4');
+                let temp_x = current_x, temp_y = current_y;
+                ctx.beginPath();
+                ctx.moveTo(xScale(temp_x), yScale(temp_y));
+                ctx.strokeStyle = '#f97316'; temp_y += k1 / 6; temp_x += h / 6; ctx.lineTo(xScale(temp_x), yScale(temp_y));
+                ctx.strokeStyle = '#a855f7'; temp_y += 2 * k2 / 6; temp_x += 2 * h / 6; ctx.lineTo(xScale(temp_x), yScale(temp_y));
+                ctx.strokeStyle = '#ef4444'; temp_y += 2 * k3 / 6; temp_x += 2 * h / 6; ctx.lineTo(xScale(temp_x), yScale(temp_y));
+                ctx.strokeStyle = '#06b6d4'; temp_y += k4 / 6; temp_x += h / 6; ctx.lineTo(xScale(temp_x), yScale(temp_y));
+                ctx.stroke();
+                current_x = next_x;
+                current_y = current_y + (k1 + 2 * k2 + 2 * k3 + k4) / 6;
+              } else {
+                const points = rungeKutta(current_x, current_y, h, 1, method);
+                current_x = points[1].x;
+                current_y = points[1].y;
+              }
+            } else {
+              const points = rungeKutta(current_x, current_y, h, 1, method);
+              current_x = points[1].x;
+              current_y = points[1].y;
+            }
+            approxPoints.push({ x: current_x, y: current_y });
+          }
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          approxPoints.forEach((point, i) => {
+            const p = toCanvasCoords(point.x, point.y);
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          });
+          ctx.stroke();
+          ctx.fillStyle = '#3b82f6';
+          approxPoints.forEach(point => {
+            const p = toCanvasCoords(point.x, point.y);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+            ctx.fill();
+          });
+          const final_x = approxPoints[approxPoints.length - 1].x;
+          const final_y = approxPoints[approxPoints.length - 1].y;
+          const true_final_y = trueODE(final_x, y0);
+          const error = Math.abs(true_final_y - final_y);
+          trueRKValueSpan.textContent = true_final_y.toFixed(6);
+          approxRKValueSpan.textContent = final_y.toFixed(6);
+          rkErrorValueSpan.textContent = error.toExponential(4);
+          y0RKLabel.textContent = `Value: ${y0.toFixed(2)}`;
+          hRKLabel.textContent = `Value: ${h.toFixed(2)}`;
+          stepsRKLabel.textContent = `Value: ${steps}`;
+        };
+        const updateMaxH = () => {
+          const steps = parseInt(stepsRKSlider.value);
+          const maxH = (plot_config.xMax - plot_config.xMin) / steps;
+          hRKSlider.max = maxH.toFixed(2);
+          if (parseFloat(hRKSlider.value) > maxH) hRKSlider.value = maxH.toFixed(2);
+        };
+        y0RKSlider.addEventListener('input', drawRKPlot);
+        hRKSlider.addEventListener('input', drawRKPlot);
+        stepsRKSlider.addEventListener('input', () => {
+          updateMaxH();
+          drawRKPlot();
+        });
+        rkMethodRadios.forEach(radio => radio.addEventListener('change', drawRKPlot));
+        updateMaxH();
+        drawRKPlot();
+      });
+    </script>
+  </body>
+</html>
