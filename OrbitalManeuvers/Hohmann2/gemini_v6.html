@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hohmann Transfer Visualizer</title>
+    <!-- Load Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    <style type="text/css">
+      /* Use Inter font as requested */
+      body {
+          font-family: 'Inter', sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-gray-100 p-4 md:p-8 min-h-screen">
+
+    <div class="container mx-auto max-w-6xl">
+      
+      <!-- Controls --><div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 bg-gray-800 p-6 rounded-lg shadow-xl">
+        
+        <!-- Orbit 1 Inputs --><div class="space-y-4 p-4 bg-gray-700 rounded-lg shadow-inner">
+          <h2 class="text-xl font-semibold text-gray-300">Orbit 1 (A-B)</h2>
+          <div>
+            <label for="altA" class="block text-sm font-medium text-gray-300">Altitude A (Right)</label>
+            <input type="number" id="altA" value="5000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+          </div>
+          <div>
+            <label for="altB" class="block text-sm font-medium text-gray-300">Altitude B (Left)</label>
+            <input type="number" id="altB" value="20000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+          </div>
+        </div>
+        
+        <!-- Orbit 2 Inputs --><div class="space-y-4 p-4 bg-gray-700 rounded-lg shadow-inner">
+          <h2 class="text-xl font-semibold text-teal-300">Orbit 2 (C-D)</h2>
+          <div>
+            <label for="altC" class="block text-sm font-medium text-gray-300">Altitude C (Right)</label>
+            <input type="number" id="altC" value="40000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-teal-500 focus:border-teal-500">
+          </div>
+          <div>
+            <label for="altD" class="block text-sm font-medium text-gray-300">Altitude D (Left)</label>
+            <input type="number" id="altD" value="100000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-teal-500 focus:border-teal-500">
+          </div>
+        </div>
+
+        <!-- Global/View Controls --><div class="space-y-4 p-4 bg-gray-700 rounded-lg shadow-inner">
+          <h2 class="text-xl font-semibold text-gray-300">Settings</h2>
+          <div>
+            <label for="gm" class="block text-sm font-medium text-gray-300">Gravitational Parameter (km³/s²)</label>
+            <input type="number" id="gm" value="398600" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+          </div>
+          <div class="relative flex items-start">
+            <div class="flex items-center h-5">
+              <input id="showTransfer1" type="checkbox" checked class="focus:ring-green-500 h-4 w-4 text-green-600 border-gray-500 bg-gray-900 rounded">
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="showTransfer1" class="font-medium text-gray-300">Show Transfer 1 (A-D)</label>
+            </div>
+          </div>
+          <div class="relative flex items-start">
+            <div class="flex items-center h-5">
+              <input id="showTransfer2" type="checkbox" checked class="focus:ring-red-500 h-4 w-4 text-red-600 border-gray-500 bg-gray-900 rounded">
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="showTransfer2" class="font-medium text-gray-300">Show Transfer 2 (C-B)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas --><div class="bg-gray-800 p-4 rounded-lg shadow-xl overflow-hidden">
+        <!-- Set explicit width/height on canvas element for correct coordinate system --><canvas id="orbitCanvas" width="1000" height="700" class="bg-black rounded-md w-full h-auto"></canvas>
+      </div>
+      
+      <!-- Velocity Display --><div class="mt-6 p-6 bg-gray-800 rounded-lg shadow-xl">
+        <h3 class="text-xl font-semibold mb-4 text-white">Orbital Velocities (km/s)</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+          
+          <!-- Column 1: Primary Orbits --><div class="space-y-4">
+            <!-- Orbit 1 (A-B) Velocities --><div>
+              <h4 class="font-semibold text-gray-300 mb-2">Orbit 1 (A-B)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at A:</span>
+                <span id="v_A_o1" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at B:</span>
+                <span id="v_B_o1" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+            
+            <!-- Orbit 2 (C-D) Velocities --><div>
+              <h4 class="font-semibold text-teal-300 mb-2">Orbit 2 (C-D)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at C:</span>
+                <span id="v_C_o2" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at D:</span>
+                <span id="v_D_o2" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Transfer Orbits --><div class="space-y-4">
+            <!-- Transfer 1 (A-D) Velocities --><div id="t1_data_container" class="hidden">
+              <h4 class="font-semibold text-green-500 mb-2">Transfer 1 (A-D)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at A:</span>
+                <span id="v_A_t1" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at D:</span>
+                <span id="v_D_t1" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+
+            <!-- Transfer 2 (C-B) Velocities --><div id="t2_data_container" class="hidden">
+              <h4 class="font-semibold text-red-500 mb-2">Transfer 2 (C-B)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at C:</span>
+                <span id="v_C_t2" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at B:</span>
+                <span id="v_B_t2" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      window.onload = function() {
+        const canvas = document.getElementById('orbitCanvas');
+        if (!canvas) {
+          console.error("Canvas element not found!");
+          return;
+        }
+        const ctx = canvas.getContext('2d');
+        canvas.style.cursor = 'grab'; // Add cursor for panning
+        
+        const altitudeInputs = [
+          document.getElementById('altA'),
+          document.getElementById('altB'),
+          document.getElementById('altC'),
+          document.getElementById('altD')
+        ];
+
+        const viewInputs = [
+          document.getElementById('gm'),
+          document.getElementById('showTransfer1'),
+          document.getElementById('showTransfer2')
+        ];
+
+        // Velocity display elements
+        const vel = {
+          v_A_o1: document.getElementById('v_A_o1'),
+          v_B_o1: document.getElementById('v_B_o1'),
+          v_C_o2: document.getElementById('v_C_o2'),
+          v_D_o2: document.getElementById('v_D_o2'),
+          v_A_t1: document.getElementById('v_A_t1'),
+          v_D_t1: document.getElementById('v_D_t1'),
+          v_C_t2: document.getElementById('v_C_t2'),
+          v_B_t2: document.getElementById('v_B_t2'),
+          t1_container: document.getElementById('t1_data_container'),
+          t2_container: document.getElementById('t2_data_container'),
+        };
+
+        // View state for zoom and pan
+        const view = {
+          zoom: 1,
+          panX: 0,
+          panY: 0,
+          baseScale: 1 // Will be set in draw()
+        };
+        
+        // Panning state
+        let isPanning = false;
+        let lastPanX = 0;
+        let lastPanY = 0;
+
+        const EARTH_RADIUS_KM = 6371;
+        const COLORS = {
+          earth: '#3b82f6', // blue-500
+          orbit1: '#9ca3af', // gray-400
+          orbit2: '#2dd4bf', // teal-400
+          transfer1: '#22c55e', // green-500
+          transfer2: '#ef4444',  // red-500
+          point: '#fff' // white for points
+        };
+
+        /**
+         * Calculates orbital velocity using the vis-viva equation.
+         * @param {number} gm - Gravitational parameter (km³/s²)
+         * @param {number} r - Current orbital radius (km)
+         * @param {number} a - Semi-major axis (km)
+         * @returns {number} Velocity (km/s)
+         */
+        function calculateVelocity(gm, r, a) {
+          if (gm <= 0 || r <= 0 || a <= 0) {
+            return 0;
+          }
+          // Ensure that the term inside the sqrt is non-negative for valid ellipses/hyperbolas
+          const term = (2 / r) - (1 / a);
+          if (term < 0) { // For hyperbolic orbits, term can be negative
+            return 0; // Or return NaN/Infinity if desired for hyperbolas
+          }
+          return Math.sqrt(gm * term);
+        }
+
+        /**
+         * Draws an ellipse given two apsis radii and which one is on the right.
+         * This is the core rendering function.
+         */
+        function drawEllipse(ctx, r_p_km, r_a_km, color, scale, cx, cy, perigeeRight = true, dashed = false) {
+          // Semi-major axis (km)
+          const a_km = (r_p_km + r_a_km) / 2;
+          // Eccentricity
+          const e = (r_a_km - r_p_km) / (r_a_km + r_p_km);
+          // Distance from ellipse center to focus (km)
+          const c_km = a_km * e;
+
+          // Convert to pixel dimensions
+          const a_px = a_km * scale; // Semi-major axis (pixels)
+          // Semi-minor axis (pixels)
+          const b_px = a_px * Math.sqrt(1 - e * e); 
+
+          // Calculate the ellipse's center coordinates in the canvas
+          // The focus (Earth) is at (cx, cy).
+          // The ellipse's center is 'c_km' away from the focus.
+          const focusOffset = (c_km * scale) * (perigeeRight ? -1 : 1);
+          const ellipse_cx = cx + focusOffset;
+          const ellipse_cy = cy;
+
+          ctx.beginPath();
+          // Check for valid dimensions (e.g., b_px can be NaN if r_p > r_a)
+          if (a_px > 0 && b_px > 0 && isFinite(a_px) && isFinite(b_px)) { // Added isFinite checks
+            ctx.ellipse(ellipse_cx, ellipse_cy, a_px, b_px, 0, 0, 2 * Math.PI);
+          } else {
+            return; // Don't draw if parameters are invalid
+          }
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+
+          if (dashed) {
+            ctx.setLineDash([10, 10]); // Apply dashed line
+          }
+          
+          ctx.stroke();
+          
+          if (dashed) {
+            ctx.setLineDash([]); // Reset to solid
+          }
+        }
+
+        /**
+         * Wrapper function to generalize drawing an orbit between a right and left point.
+         * It determines which is perigee/apogee and calls drawEllipse.
+         * @param {number} r_right - Radius of the right-side point (km).
+         * @param {number} r_left - Radius of the left-side point (km).
+         */
+        function drawOrbit(ctx, r_right, r_left, color, scale, cx, cy, dashed = false) {
+          const r_p = Math.min(r_right, r_left);
+          const r_a = Math.max(r_right, r_left);
+          const perigeeIsRight = (r_right < r_left); // If right radius is smaller, it's perigee on the right
+          
+          drawEllipse(ctx, r_p, r_a, color, scale, cx, cy, perigeeIsRight, dashed);
+        }
+
+        /**
+         * Draws a labeled point on the canvas.
+         * @param {CanvasRenderingContext2D} ctx - The canvas context.
+         * @param {number} radius_km - The radial distance from Earth's center (km).
+         * @param {string} label - The label for the point (e.g., "A").
+         * @param {string} color - The color of the dot.
+         * @param {number} scale - Pixels per km.
+         * @param {number} cx - Canvas center X (view-adjusted).
+         * @param {number} cy - Canvas center Y (view-adjusted).
+         * @param {boolean} isRightSide - If true, draw on the right side of Earth; otherwise, left.
+         */
+        function drawLabeledPoint(ctx, radius_km, label, color, scale, cx, cy, isRightSide) {
+          const point_px = radius_km * scale;
+          const x_coord = cx + (isRightSide ? point_px : -point_px);
+          const y_coord = cy;
+          const dot_radius = 5; // Size of the dot
+
+          // Draw the dot
+          ctx.beginPath();
+          ctx.arc(x_coord, y_coord, dot_radius, 0, 2 * Math.PI);
+          ctx.fillStyle = color;
+          ctx.fill();
+
+          // Draw the label
+          ctx.font = 'bold 14px Arial';
+          ctx.fillStyle = color;
+          ctx.textAlign = isRightSide ? 'left' : 'right';
+          ctx.textBaseline = 'middle';
+          const label_offset_x = isRightSide ? dot_radius + 5 : -(dot_radius + 5);
+          const label_offset_y = -10; // Slightly above the point
+          ctx.fillText(label, x_coord + label_offset_x, y_coord + label_offset_y);
+        }
+
+        /**
+         * Main draw function to render the entire scene.
+         */
+        function draw() {
+          // Clear canvas
+          ctx.fillStyle = '#000000'; // black
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Calculate view-adjusted center
+          const cx = canvas.width / 2 + view.panX;
+          const cy = canvas.height / 2 + view.panY;
+
+          // Get input values (altitude from surface)
+          const altA = parseFloat(altitudeInputs[0].value);
+          const altB = parseFloat(altitudeInputs[1].value);
+          const altC = parseFloat(altitudeInputs[2].value);
+          const altD = parseFloat(altitudeInputs[3].value);
+          
+          // Get view settings
+          const gm = parseFloat(document.getElementById('gm').value);
+          const showT1 = document.getElementById('showTransfer1').checked;
+          const showT2 = document.getElementById('showTransfer2').checked;
+
+          // Convert to distances from Earth's center (radii)
+          const r_A = altA + EARTH_RADIUS_KM; // Right
+          const r_B = altB + EARTH_RADIUS_KM; // Left
+          const r_C = altC + EARTH_RADIUS_KM; // Right
+          const r_D = altD + EARTH_RADIUS_KM; // Left
+          
+          if (isNaN(r_A) || isNaN(r_B) || isNaN(r_C) || isNaN(r_D) || isNaN(gm) || gm <= 0) {
+            console.warn("Invalid input values. Ensuring all values are positive and valid.");
+            // Render Earth even if orbits are invalid
+            const finalScale_fallback = (canvas.width / 2 - 20) / (EARTH_RADIUS_KM * 5); // Some arbitrary scale
+            const earth_pixel_radius_fb = EARTH_RADIUS_KM * finalScale_fallback * view.zoom;
+            ctx.beginPath();
+            ctx.arc(cx, cy, Math.max(1, earth_pixel_radius_fb), 0, 2 * Math.PI);
+            ctx.fillStyle = COLORS.earth;
+            ctx.fill();
+            return; 
+          }
+
+          // Determine scaling factor to fit all orbits and points
+          const max_r = Math.max(r_A, r_B, r_C, r_D);
+          // Scale to fit max apogee within canvas width, leaving a 20px margin
+          view.baseScale = (canvas.width / 2 - 20) / max_r; 
+          const finalScale = view.baseScale * view.zoom;
+
+          // --- Draw Orbits ---
+          // Draw transfers first so they appear "under"
+          
+          // Transfer 1 (A-D)
+          if (showT1) {
+            drawOrbit(ctx, r_A, r_D, COLORS.transfer1, finalScale, cx, cy, true);
+          }
+          // Transfer 2 (C-B)
+          if (showT2) {
+            drawOrbit(ctx, r_C, r_B, COLORS.transfer2, finalScale, cx, cy, true);
+          }
+          
+          // Orbit 1 (A-B)
+          drawOrbit(ctx, r_A, r_B, COLORS.orbit1, finalScale, cx, cy, false);
+          
+          // Orbit 2 (C-D)
+          drawOrbit(ctx, r_C, r_D, COLORS.orbit2, finalScale, cx, cy, false);
+
+          // --- Draw Earth ---
+          const earth_pixel_radius = EARTH_RADIUS_KM * finalScale;
+          ctx.beginPath();
+          // Draw Earth, ensuring it's at least 1px if scale is very small
+          ctx.arc(cx, cy, Math.max(1, earth_pixel_radius), 0, 2 * Math.PI);
+          ctx.fillStyle = COLORS.earth;
+          ctx.fill();
+
+          // --- Draw Labeled Points ---
+          drawLabeledPoint(ctx, r_A, "A", COLORS.point, finalScale, cx, cy, true);
+          drawLabeledPoint(ctx, r_B, "B", COLORS.point, finalScale, cx, cy, false);
+          drawLabeledPoint(ctx, r_C, "C", COLORS.point, finalScale, cx, cy, true);
+          drawLabeledPoint(ctx, r_D, "D", COLORS.point, finalScale, cx, cy, false);
+
+
+          // --- Calculate Velocities & Update DOM ---
+          // Orbit 1 (A-B)
+          const a_o1 = (r_A + r_B) / 2;
+          vel.v_A_o1.textContent = calculateVelocity(gm, r_A, a_o1).toFixed(2);
+          vel.v_B_o1.textContent = calculateVelocity(gm, r_B, a_o1).toFixed(2);
+          
+          // Orbit 2 (C-D)
+          const a_o2 = (r_C + r_D) / 2;
+          vel.v_C_o2.textContent = calculateVelocity(gm, r_C, a_o2).toFixed(2);
+          vel.v_D_o2.textContent = calculateVelocity(gm, r_D, a_o2).toFixed(2);
+
+          // Transfer 1 (A-D)
+          if (showT1) {
+            const a_t1 = (r_A + r_D) / 2;
+            vel.v_A_t1.textContent = calculateVelocity(gm, r_A, a_t1).toFixed(2);
+            vel.v_D_t1.textContent = calculateVelocity(gm, r_D, a_t1).toFixed(2);
+            vel.t1_container.classList.remove('hidden');
+          } else {
+            vel.t1_container.classList.add('hidden');
+          }
+
+          // Transfer 2 (C-B)
+          if (showT2) {
+            const a_t2 = (r_B + r_C) / 2; // Semimajor axis for B-C transfer
+            vel.v_C_t2.textContent = calculateVelocity(gm, r_C, a_t2).toFixed(2);
+            vel.v_B_t2.textContent = calculateVelocity(gm, r_B, a_t2).toFixed(2);
+            vel.t2_container.classList.remove('hidden');
+          } else {
+            vel.t2_container.classList.add('hidden');
+          }
+        }
+        
+        function onInputChange() {
+          // Reset view state on input change
+          view.zoom = 1;
+          view.panX = 0;
+          view.panY = 0;
+          draw();
+        }
+
+        // Add event listeners to all inputs
+        altitudeInputs.forEach(input => {
+          input.addEventListener('input', onInputChange);
+        });
+
+        // Add event listeners for view controls that should NOT reset zoom/pan
+        viewInputs.forEach(input => {
+          input.addEventListener('input', draw);
+        });
+        
+        // --- Zoom and Pan Event Handlers ---
+        
+        function handleWheel(event) {
+          event.preventDefault();
+          
+          const zoomFactor = 1.1;
+          const mouseX = event.offsetX;
+          const mouseY = event.offsetY;
+          const delta = event.deltaY > 0 ? 1 / zoomFactor : zoomFactor;
+
+          // Get world coordinates before zoom
+          const worldX_before = (mouseX - (canvas.width / 2 + view.panX)) / (view.baseScale * view.zoom);
+          const worldY_before = (mouseY - (canvas.height / 2 + view.panY)) / (view.baseScale * view.zoom);
+
+          // Apply zoom
+          view.zoom *= delta;
+
+          // Get screen coordinates after zoom, if pan was unchanged
+          const screenX_after = worldX_before * (view.baseScale * view.zoom) + (canvas.width / 2 + view.panX);
+          const screenY_after = worldY_before * (view.baseScale * view.zoom) + (canvas.height / 2 + view.panY);
+
+          // Adjust pan to keep world point under mouse
+          view.panX += mouseX - screenX_after;
+          view.panY += mouseY - screenY_after;
+
+          draw();
+        }
+        
+        canvas.addEventListener('wheel', handleWheel);
+        
+        canvas.addEventListener('mousedown', (e) => {
+          isPanning = true;
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
+          canvas.style.cursor = 'grabbing';
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+          if (!isPanning) {
+            return;
+          }
+          const dx = e.clientX - lastPanX;
+          const dy = e.clientY - lastPanY;
+          view.panX += dx;
+          view.panY += dy;
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
+          draw();
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+          isPanning = false;
+          canvas.style.cursor = 'grab';
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+          isPanning = false;
+          canvas.style.cursor = 'grab';
+        });
+
+        // Initial draw on page load
+        draw();
+      };
+    </script>
+  </body>
+</html>

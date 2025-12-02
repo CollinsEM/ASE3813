@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hohmann Transfer Visualizer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style type="text/css">
+      /* Use Inter font as requested */
+      body {
+          font-family: 'Inter', sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-gray-100 p-4 md:p-8 min-h-screen">
+
+    <div class="container mx-auto max-w-6xl">
+      
+      <!-- Controls -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 bg-gray-800 p-6 rounded-lg shadow-xl">
+        
+        <!-- Orbit 1 Inputs -->
+        <div class="space-y-4 p-4 bg-gray-700 rounded-lg shadow-inner">
+          <h2 class="text-xl font-semibold text-gray-300">Orbit 1 (Gray)</h2>
+          <div>
+            <label for="perigee1" class="block text-sm font-medium text-gray-300">Perigee Altitude (km)</label>
+            <input type="number" id="perigee1" value="5000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+          </div>
+          <div>
+            <label for="apogee1" class="block text-sm font-medium text-gray-300">Apogee Altitude (km)</label>
+            <input type="number" id="apogee1" value="20000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+          </div>
+        </div>
+        
+        <!-- Orbit 2 Inputs -->
+        <div class="space-y-4 p-4 bg-gray-700 rounded-lg shadow-inner">
+          <h2 class="text-xl font-semibold text-teal-300">Orbit 2 (Teal)</h2>
+          <div>
+            <label for="perigee2" class="block text-sm font-medium text-gray-300">Perigee Altitude (km)</label>
+            <input type="number" id="perigee2" value="40000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-teal-500 focus:border-teal-500">
+          </div>
+          <div>
+            <label for="apogee2" class="block text-sm font-medium text-gray-300">Apogee Altitude (km)</label>
+            <input type="number" id="apogee2" value="100000" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-teal-500 focus:border-teal-500">
+          </div>
+        </div>
+
+        <!-- Global/View Controls -->
+        <div class="space-y-4 p-4 bg-gray-700 rounded-lg shadow-inner">
+          <h2 class="text-xl font-semibold text-gray-300">Settings</h2>
+          <div>
+            <label for="gm" class="block text-sm font-medium text-gray-300">Gravitational Parameter (km³/s²)</label>
+            <input type="number" id="gm" value="398600" class="mt-1 block w-full bg-gray-900 border border-gray-600 rounded-md shadow-sm p-2 text-white focus:ring-cyan-500 focus:border-cyan-500">
+          </div>
+          <div class="relative flex items-start">
+            <div class="flex items-center h-5">
+              <input id="showTransfer1" type="checkbox" checked class="focus:ring-green-500 h-4 w-4 text-green-600 border-gray-500 bg-gray-900 rounded">
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="showTransfer1" class="font-medium text-gray-300">Show Transfer 1 (Green)</label>
+            </div>
+          </div>
+          <div class="relative flex items-start">
+            <div class="flex items-center h-5">
+              <input id="showTransfer2" type="checkbox" checked class="focus:ring-red-500 h-4 w-4 text-red-600 border-gray-500 bg-gray-900 rounded">
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="showTransfer2" class="font-medium text-gray-300">Show Transfer 2 (Red)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="bg-gray-800 p-4 rounded-lg shadow-xl overflow-hidden">
+        <!-- Set explicit width/height on canvas element for correct coordinate system -->
+        <canvas id="orbitCanvas" width="1000" height="700" class="bg-black rounded-md w-full h-auto"></canvas>
+      </div>
+      
+      <!-- Velocity Display -->
+      <div class="mt-6 p-6 bg-gray-800 rounded-lg shadow-xl">
+        <h3 class="text-xl font-semibold mb-4 text-white">Orbital Velocities (km/s)</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+          
+          <!-- Column 1: Primary Orbits -->
+          <div class="space-y-4">
+            <!-- Orbit 1 Velocities -->
+            <div>
+              <h4 class="font-semibold text-gray-300 mb-2">Orbit 1 (Gray)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Perigee:</span>
+                <span id="v_p1" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Apogee:</span>
+                <span id="v_a1" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+            
+            <!-- Orbit 2 Velocities -->
+            <div>
+              <h4 class="font-semibold text-teal-300 mb-2">Orbit 2 (Teal)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Perigee:</span>
+                <span id="v_p2" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Apogee:</span>
+                <span id="v_a2" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Transfer Orbits -->
+          <div class="space-y-4">
+            <!-- Transfer 1 Velocities -->
+            <div id="t1_data_container" class="hidden">
+              <h4 class="font-semibold text-green-500 mb-2">Transfer 1 (Perigee 1 &harr; Apogee 2)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Perigee:</span>
+                <span id="v_p_t1" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Apogee:</span>
+                <span id="v_a_t1" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+
+            <!-- Transfer 2 Velocities -->
+            <div id="t2_data_container" class="hidden">
+              <h4 class="font-semibold text-red-500 mb-2">Transfer 2 (Perigee 2 &harr; Apogee 1)</h4>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Perigee:</span>
+                <span id="v_p_t2" class="font-mono text-cyan-400">...</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Velocity at Apogee:</span>
+                <span id="v_a_t2" class="font-mono text-cyan-400">...</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      window.onload = function() {
+        const canvas = document.getElementById('orbitCanvas');
+        if (!canvas) {
+          console.error("Canvas element not found!");
+          return;
+        }
+        const ctx = canvas.getContext('2d');
+        canvas.style.cursor = 'grab'; // Add cursor for panning
+        
+        const altitudeInputs = [
+          document.getElementById('perigee1'),
+          document.getElementById('apogee1'),
+          document.getElementById('perigee2'),
+          document.getElementById('apogee2')
+        ];
+
+        const viewInputs = [
+          document.getElementById('gm'),
+          document.getElementById('showTransfer1'),
+          document.getElementById('showTransfer2')
+        ];
+
+        // Velocity display elements
+        const vel = {
+          v_p1: document.getElementById('v_p1'),
+          v_a1: document.getElementById('v_a1'),
+          v_p2: document.getElementById('v_p2'),
+          v_a2: document.getElementById('v_a2'),
+          v_p_t1: document.getElementById('v_p_t1'),
+          v_a_t1: document.getElementById('v_a_t1'),
+          v_p_t2: document.getElementById('v_p_t2'),
+          v_a_t2: document.getElementById('v_a_t2'),
+          t1_container: document.getElementById('t1_data_container'),
+          t2_container: document.getElementById('t2_data_container'),
+        };
+
+        // View state for zoom and pan
+        const view = {
+          zoom: 1,
+          panX: 0,
+          panY: 0,
+          baseScale: 1 // Will be set in draw()
+        };
+        
+        // Panning state
+        let isPanning = false;
+        let lastPanX = 0;
+        let lastPanY = 0;
+
+        const EARTH_RADIUS_KM = 6371;
+        const COLORS = {
+          earth: '#3b82f6', // blue-500
+          orbit1: '#9ca3af', // gray-400
+          orbit2: '#2dd4bf', // teal-400
+          transfer1: '#22c55e', // green-500
+          transfer2: '#ef4444'  // red-500
+        };
+
+        /**
+         * Calculates orbital velocity using the vis-viva equation.
+         * @param {number} gm - Gravitational parameter (km³/s²)
+         * @param {number} r - Current orbital radius (km)
+         * @param {number} a - Semi-major axis (km)
+         * @returns {number} Velocity (km/s)
+         */
+        function calculateVelocity(gm, r, a) {
+          if (gm <= 0 || r <= 0 || a <= 0) { return 0; }
+          return Math.sqrt(gm * ((2 / r) - (1 / a)));
+        }
+
+        /**
+         * Draws an ellipse on the canvas.
+         * ... (rest of the function signature) ...
+         */
+        function drawEllipse(ctx, r_p_km, r_a_km, color, scale, cx, cy, perigeeRight = true, dashed = false) {
+          // Semi-major axis (km)
+          const a_km = (r_p_km + r_a_km) / 2;
+          // Eccentricity
+          const e = (r_a_km - r_p_km) / (r_a_km + r_p_km);
+          // Distance from ellipse center to focus (km)
+          const c_km = a_km * e;
+
+          // Convert to pixel dimensions
+          const a_px = a_km * scale; // Semi-major axis (pixels)
+          // Semi-minor axis (pixels)
+          const b_px = a_px * Math.sqrt(1 - e * e); 
+
+          // Calculate the ellipse's center coordinates in the canvas
+          // The focus (Earth) is at (cx, cy).
+          // The ellipse's center is 'c_km' away from the focus.
+          const focusOffset = (c_km * scale) * (perigeeRight ? -1 : 1);
+          const ellipse_cx = cx + focusOffset;
+          const ellipse_cy = cy;
+
+          ctx.beginPath();
+          // Check for valid dimensions (e.g., b_px can be NaN if r_p > r_a)
+          if (a_px > 0 && b_px > 0) {
+            ctx.ellipse(ellipse_cx, ellipse_cy, a_px, b_px, 0, 0, 2 * Math.PI);
+          }
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+
+          if (dashed) {
+            ctx.setLineDash([10, 10]); // Apply dashed line
+          }
+          
+          ctx.stroke();
+          
+          if (dashed) {
+            ctx.setLineDash([]); // Reset to solid
+          }
+        }
+
+        /**
+         * Main draw function to render the entire scene.
+         */
+        function draw() {
+          // Clear canvas
+          ctx.fillStyle = '#000000'; // black
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Calculate view-adjusted center
+          const cx = canvas.width / 2 + view.panX;
+          const cy = canvas.height / 2 + view.panY;
+
+          // Get input values (altitude from surface)
+          const p1_alt = parseFloat(altitudeInputs[0].value);
+          const a1_alt = parseFloat(altitudeInputs[1].value);
+          const p2_alt = parseFloat(altitudeInputs[2].value);
+          const a2_alt = parseFloat(altitudeInputs[3].value);
+          
+          // Get view settings
+          const gm = parseFloat(document.getElementById('gm').value);
+          const showT1 = document.getElementById('showTransfer1').checked;
+          const showT2 = document.getElementById('showTransfer2').checked;
+
+          // Convert to distances from Earth's center (radii)
+          const r_p1 = p1_alt + EARTH_RADIUS_KM;
+          const r_a1 = a1_alt + EARTH_RADIUS_KM;
+          const r_p2 = p2_alt + EARTH_RADIUS_KM;
+          const r_a2 = a2_alt + EARTH_RADIUS_KM;
+          
+          // Ensure perigee is always the smaller value
+          const rp1 = Math.min(r_p1, r_a1);
+          const ra1 = Math.max(r_p1, r_a1);
+          const rp2 = Math.min(r_p2, r_a2);
+          const ra2 = Math.max(r_p2, r_a2);
+          
+          if (isNaN(rp1) || isNaN(ra1) || isNaN(rp2) || isNaN(ra2) || isNaN(gm)) {
+            console.warn("Invalid input values.");
+            return; // Stop if inputs are not valid numbers
+          }
+
+          // Determine scaling factor to fit all orbits
+          const max_r = Math.max(ra1, ra2);
+          // Scale to fit max apogee within canvas width, leaving a 20px margin
+          view.baseScale = (canvas.width / 2 - 20) / max_r; 
+          const finalScale = view.baseScale * view.zoom;
+
+          // --- Calculate Velocities & Update DOM ---
+          const a1 = (rp1 + ra1) / 2;
+          vel.v_p1.textContent = calculateVelocity(gm, rp1, a1).toFixed(2);
+          vel.v_a1.textContent = calculateVelocity(gm, ra1, a1).toFixed(2);
+          
+          const a2 = (rp2 + ra2) / 2;
+          vel.v_p2.textContent = calculateVelocity(gm, rp2, a2).toFixed(2);
+          vel.v_a2.textContent = calculateVelocity(gm, ra2, a2).toFixed(2);
+
+          // --- Draw Orbits ---
+          // Transfer 1 (Connects Perigee 1 and Apogee 2)
+          if (showT1) {
+            const h1_rp = Math.min(rp1, ra2);
+            const h1_ra = Math.max(rp1, ra2);
+            const a_t1 = (h1_rp + h1_ra) / 2;
+
+            drawEllipse(ctx, h1_rp, h1_ra, COLORS.transfer1, finalScale, cx, cy, true, true);
+            
+            vel.v_p_t1.textContent = calculateVelocity(gm, h1_rp, a_t1).toFixed(2);
+            vel.v_a_t1.textContent = calculateVelocity(gm, h1_ra, a_t1).toFixed(2);
+            vel.t1_container.classList.remove('hidden');
+          } else {
+            vel.t1_container.classList.add('hidden');
+          }
+
+          // Transfer 2 (Connects Perigee 2 and Apogee 1)
+          if (showT2) {
+            const h2_rp = Math.min(rp2, ra1);
+            const h2_ra = Math.max(rp2, ra1);
+            const a_t2 = (h2_rp + h2_ra) / 2;
+
+            // This transfer connects Apogee 1 (left) to Perigee 2 (right).
+            // Its apogee is ra1, so perigee must be on the left.
+            drawEllipse(ctx, h2_rp, h2_ra, COLORS.transfer2, finalScale, cx, cy, false, true);
+            
+            vel.v_p_t2.textContent = calculateVelocity(gm, h2_rp, a_t2).toFixed(2);
+            vel.v_a_t2.textContent = calculateVelocity(gm, h2_ra, a_t2).toFixed(2);
+            vel.t2_container.classList.remove('hidden');
+          } else {
+            vel.t2_container.classList.add('hidden');
+          }
+          
+          // Orbit 1
+          drawEllipse(ctx, rp1, ra1, COLORS.orbit1, finalScale, cx, cy, true, false);
+          
+          // Orbit 2
+          drawEllipse(ctx, rp2, ra2, COLORS.orbit2, finalScale, cx, cy, true, false);
+
+          // --- Draw Earth ---
+          const earth_pixel_radius = EARTH_RADIUS_KM * finalScale;
+          ctx.beginPath();
+          // Draw Earth, ensuring it's at least 1px if scale is very small
+          ctx.arc(cx, cy, Math.max(1, earth_pixel_radius), 0, 2 * Math.PI);
+          ctx.fillStyle = COLORS.earth;
+          ctx.fill();
+        }
+        
+        function onInputChange() {
+          // Reset view state on input change
+          view.zoom = 1;
+          view.panX = 0;
+          view.panY = 0;
+          draw();
+        }
+
+        // Add event listeners to all inputs
+        altitudeInputs.forEach(input => {
+          input.addEventListener('input', onInputChange);
+        });
+
+        // Add event listeners for view controls that should NOT reset zoom/pan
+        viewInputs.forEach(input => {
+          input.addEventListener('input', draw);
+        });
+        
+        // --- Zoom and Pan Event Handlers ---
+        
+        function handleWheel(event) {
+          event.preventDefault();
+          
+          const zoomFactor = 1.1;
+          const mouseX = event.offsetX;
+          const mouseY = event.offsetY;
+          const delta = event.deltaY > 0 ? 1 / zoomFactor : zoomFactor;
+
+          // Get world coordinates before zoom
+          const worldX_before = (mouseX - (canvas.width / 2 + view.panX)) / (view.baseScale * view.zoom);
+          const worldY_before = (mouseY - (canvas.height / 2 + view.panY)) / (view.baseScale * view.zoom);
+
+          // Apply zoom
+          view.zoom *= delta;
+          // Add zoom limits if desired
+          // view.zoom = Math.max(0.1, Math.min(view.zoom, 20)); 
+
+          // Get screen coordinates after zoom, if pan was unchanged
+          const screenX_after = worldX_before * (view.baseScale * view.zoom) + (canvas.width / 2 + view.panX);
+          const screenY_after = worldY_before * (view.baseScale * view.zoom) + (canvas.height / 2 + view.panY);
+
+          // Adjust pan to keep world point under mouse
+          view.panX += mouseX - screenX_after;
+          view.panY += mouseY - screenY_after;
+
+          draw();
+        }
+        
+        canvas.addEventListener('wheel', handleWheel);
+        
+        canvas.addEventListener('mousedown', (e) => {
+          isPanning = true;
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
+          canvas.style.cursor = 'grabbing';
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+          if (!isPanning) { return; }
+          const dx = e.clientX - lastPanX;
+          const dy = e.clientY - lastPanY;
+          view.panX += dx;
+          view.panY += dy;
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
+          draw();
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+          isPanning = false;
+          canvas.style.cursor = 'grab';
+        });
+        
+        canvas.addEventListener('mouseleave', () => {
+          isPanning = false;
+          canvas.style.cursor = 'grab';
+        });
+
+        // Initial draw on page load
+        draw();
+      };
+    </script>
+  </body>
+</html>
