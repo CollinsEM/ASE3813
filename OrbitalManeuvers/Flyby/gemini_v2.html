@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gravity Assist Visualizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style type="text/css">
+    body { margin: 0; overflow: hidden; background-color: #020617; color: #e2e8f0; font-family: monospace; }
+    canvas { display: block; }
+    
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    .slider-label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.25rem; color: #94a3b8; }
+    input[type=range] { width: 100%; accent-color: #38bdf8; cursor: pointer; }
+    input[type=number] {
+      background-color: #1e293b; border: 1px solid #334155; color: #f8fafc;
+      padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.875rem; width: 100%;
+    }
+    input[type=number]:focus { outline: none; border-color: #38bdf8; }
+    .panel { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(4px); border: 1px solid #334155; }
+    
+    .view-label {
+      position: absolute; 
+      padding: 0.5rem 1rem; background: rgba(0,0,0,0.7); 
+      border-radius: 9999px; font-weight: bold; font-size: 0.875rem;
+      pointer-events: none; border: 1px solid #334155;
+    }
+
+    #inset-container {
+      position: absolute; bottom: 1rem; left: 1rem; width: 300px; height: 300px;
+      pointer-events: none; /* Let Three.js handle events if needed, but usually manual scissor implies custom handling */
+      border: 1px solid #475569; border-radius: 0.5rem;
+      background: rgba(15, 23, 42, 0.5);
+    }
+    #inset-label {
+      position: absolute; bottom: 310px; left: 1rem;
+      color: #34d399; font-weight: bold; font-size: 0.75rem;
+      text-shadow: 0 1px 2px black;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main Canvas -->
+  <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+  <!-- Labels -->
+  <div class="view-label top-4 left-4 text-amber-400">Heliocentric Frame (Inertial)</div>
+  <div id="inset-label">Planet-Centric Frame</div>
+  
+  <!-- Inset Border Helper (Visual only) -->
+  <div id="inset-container"></div>
+
+  <!-- Control Panel -->
+  <div class="absolute top-16 right-4 w-80 flex flex-col gap-4 max-h-[85vh] overflow-y-auto z-10">
+    
+    <div class="panel p-4 rounded-lg shadow-lg">
+      <h2 class="text-lg font-bold text-sky-400 mb-3 border-b border-slate-700 pb-2">Flyby Parameters</h2>
+      
+      <!-- Planet V -->
+      <div class="mb-4">
+        <div class="slider-label"><span>Planet Orbital Vel (km/s)</span><span id="val-vp"></span></div>
+        <input type="range" id="in-vp" min="10" max="40" step="0.5" value="30">
+      </div>
+
+      <!-- V infinity -->
+      <div class="mb-4">
+        <div class="slider-label"><span>V-Infinity (km/s)</span><span id="val-vinf"></span></div>
+        <input type="range" id="in-vinf" min="1" max="15" step="0.1" value="8">
+      </div>
+
+      <!-- Approach Angle -->
+      <div class="mb-4">
+        <div class="slider-label"><span>Approach Angle (deg)</span><span id="val-ang"></span></div>
+        <input type="range" id="in-ang" min="0" max="180" step="1" value="20">
+        <div class="text-[10px] text-slate-500 mt-1">0 = Catching up (Tangential), 180 = Head on</div>
+      </div>
+
+      <!-- Periapsis -->
+      <div class="mb-4">
+        <div class="slider-label"><span>Periapsis Altitude (km)</span><span id="val-rp"></span></div>
+        <input type="range" id="in-rp" min="500" max="50000" step="100" value="2000">
+      </div>
+
+      <!-- Side Toggle -->
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-slate-400">Flyby Side</span>
+        <button id="btn-side" class="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-white border border-slate-600 transition" onclick="toggleSide()">Trailing (Gain Energy)</button>
+      </div>
+
+    </div>
+
+    <!-- Readouts -->
+    <div class="panel p-4 rounded-lg shadow-lg text-xs font-mono">
+      <h2 class="text-lg font-bold text-indigo-400 mb-3 border-b border-slate-700 pb-2">Maneuver Data</h2>
+      
+      <div class="grid grid-cols-2 gap-4 mb-2">
+        <div>
+          <div class="text-slate-500">Turn Angle (&delta;)</div>
+          <div id="out-turn" class="text-white text-lg font-bold">0&deg;</div>
+        </div>
+        <div>
+          <div class="text-slate-500">Eccentricity (e)</div>
+          <div id="out-e" class="text-white text-lg">0.00</div>
+        </div>
+      </div>
+
+      <div class="space-y-2 border-t border-slate-700 pt-2">
+        <div class="flex justify-between">
+          <span class="text-sky-300">V_in (Helio)</span>
+          <span id="out-vin" class="text-white font-bold">0.0 km/s</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-rose-300">V_out (Helio)</span>
+          <span id="out-vout" class="text-white font-bold">0.0 km/s</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-emerald-400">&Delta;V (Helio)</span>
+          <span id="out-dv" class="text-emerald-400 font-bold">0.0 km/s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // --- Configuration ---
+    const MU_EARTH = 398600; // km^3/s^2 (using scaled units for planet view)
+    const RE_EARTH = 6371; // km
+    let flybySide = -1; // -1 = Trailing (Gain), 1 = Leading (Lose)
+    const INSET_SIZE = 300; // px
+
+    // --- Scene Setup ---
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.autoClear = false;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    // 1. Planet-Centric Scene (Inset)
+    const sceneP = new THREE.Scene();
+    sceneP.background = new THREE.Color(0x0f172a);
+    const cameraP = new THREE.PerspectiveCamera(45, 1, 100, 2000000);
+    cameraP.position.set(0, 50000, 100000);
+    cameraP.lookAt(0,0,0);
+    // Note: Controls attached to same DOM element, must manage state or conflicts
+    // We will update viewport on render, but OrbitControls handles events based on full screen.
+    // It's tricky to have two OrbitControls on same element. 
+    // We will leave main controls on H view, and maybe fixed view or auto-rotate for P view?
+    // Or we can try to attach P controls but it might conflict. 
+    // Let's keep P static or simple for now to avoid complexity, or just let it be.
+    const controlsP = new OrbitControls(cameraP, renderer.domElement);
+    controlsP.enableDamping = true;
+    controlsP.enableZoom = true;
+    controlsP.autoRotate = false;
+
+    // 2. Heliocentric Scene (Main)
+    const sceneH = new THREE.Scene();
+    sceneH.background = new THREE.Color(0x020617);
+    const cameraH = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    cameraH.position.set(0, 60, 60);
+    cameraH.lookAt(0,0,0);
+    const controlsH = new OrbitControls(cameraH, renderer.domElement);
+    controlsH.enableDamping = true;
+
+    // --- Objects: Planet View ---
+    
+    // Planet
+    const planetGeo = new THREE.SphereGeometry(RE_EARTH, 32, 32);
+    const planetMat = new THREE.MeshBasicMaterial({ color: 0x34d399, wireframe: true, transparent:true, opacity:0.3 });
+    const planetMesh = new THREE.Mesh(planetGeo, planetMat);
+    const planetCore = new THREE.Mesh(new THREE.SphereGeometry(RE_EARTH*0.95, 32, 32), new THREE.MeshBasicMaterial({ color: 0x064e3b }));
+    planetMesh.add(planetCore);
+    sceneP.add(planetMesh);
+
+    // Hyperbola Line
+    const hyperMat = new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 });
+    const hyperLine = new THREE.Line(new THREE.BufferGeometry(), hyperMat);
+    sceneP.add(hyperLine);
+
+    // Asymptotes (Incoming = Blue, Outgoing = Red)
+    // We'll use lines that start far away and end near the planet (or intersection)
+    const asymInMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6, dashSize: 1000, gapSize: 500 });
+    const asymOutMat = new THREE.LineBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.6, dashSize: 1000, gapSize: 500 });
+    
+    const asymInLine = new THREE.Line(new THREE.BufferGeometry(), asymInMat);
+    const asymOutLine = new THREE.Line(new THREE.BufferGeometry(), asymOutMat);
+    sceneP.add(asymInLine);
+    sceneP.add(asymOutLine);
+
+    // Vectors (V_inf in/out) - Kept as small helpers at tip
+    const arrowHelperIn = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 10000, 0x38bdf8);
+    const arrowHelperOut = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 10000, 0xf43f5e);
+    sceneP.add(arrowHelperIn);
+    sceneP.add(arrowHelperOut);
+
+    // Planet Velocity Vector (Reference)
+    const arrowHelperVp = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 15000, 0xffffff);
+    sceneP.add(arrowHelperVp);
+
+    // --- Objects: Helio View ---
+
+    // Sun
+    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), new THREE.MeshBasicMaterial({ color: 0xfdba74 }));
+    sceneH.add(sunMesh);
+
+    // Planet Orbit
+    const orbPlanetMat = new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.3 });
+    const orbPlanetLine = new THREE.LineLoop(new THREE.BufferGeometry(), orbPlanetMat);
+    sceneH.add(orbPlanetLine);
+
+    // Planet Marker (Helio)
+    const planetMark = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16), new THREE.MeshBasicMaterial({ color: 0x34d399 }));
+    sceneH.add(planetMark);
+
+    // Initial Orbit (In)
+    const orbInMat = new THREE.LineBasicMaterial({ color: 0x38bdf8 });
+    const orbInLine = new THREE.LineLoop(new THREE.BufferGeometry(), orbInMat);
+    sceneH.add(orbInLine);
+
+    // Final Orbit (Out)
+    const orbOutMat = new THREE.LineBasicMaterial({ color: 0xf43f5e });
+    const orbOutLine = new THREE.LineLoop(new THREE.BufferGeometry(), orbOutMat);
+    sceneH.add(orbOutLine);
+    
+    // Grid
+    const gridH = new THREE.GridHelper(100, 50, 0x1e293b, 0x0f172a);
+    sceneH.add(gridH);
+
+
+    // --- Math & Logic ---
+
+    const D2R = Math.PI / 180;
+    
+    function updatePhysics() {
+      // Inputs
+      const Vp = parseFloat(document.getElementById('in-vp').value);
+      const Vinf = parseFloat(document.getElementById('in-vinf').value);
+      const Rp_alt = parseFloat(document.getElementById('in-rp').value);
+      const angleIn = parseFloat(document.getElementById('in-ang').value) * D2R;
+
+      // Derived
+      const Rp = RE_EARTH + Rp_alt;
+      
+      // 1. Hyperbolic Geometry
+      // e = 1 + (rp * vinf^2 / mu)
+      const e = 1 + (Rp * Vinf * Vinf) / MU_EARTH;
+      // Turn angle delta = 2 * arcsin(1/e)
+      const delta = 2 * Math.asin(1/e);
+      // Semi-major axis (negative for hyperbola)
+      const a = -MU_EARTH / (Vinf * Vinf); 
+      // Beta (asymptote angle from periapsis) = acos(-1/e)
+      const beta = Math.acos(-1/e);
+
+      // 2. Planet Frame Vectors
+      const vecVp = new THREE.Vector3(Vp, 0, 0);
+
+      // V_inf_in
+      const vecVinf_In = new THREE.Vector3(Math.cos(angleIn), 0, Math.sin(angleIn)).multiplyScalar(Vinf);
+      
+      // V_inf_out
+      const angleOut = angleIn + (flybySide * delta);
+      const vecVinf_Out = new THREE.Vector3(Math.cos(angleOut), 0, Math.sin(angleOut)).multiplyScalar(Vinf);
+
+      // 3. Heliocentric Velocities
+      const vecVsc_In = new THREE.Vector3().addVectors(vecVp, vecVinf_In);
+      const vecVsc_Out = new THREE.Vector3().addVectors(vecVp, vecVinf_Out);
+
+      // --- Visualization Updates ---
+
+      // A. Planet View (Scale: km)
+      // Draw Hyperbola
+      // Parametric equation in perifocal: r = p / (1 + e cos theta)
+      // p = a(1-e^2)
+      const p = a * (1 - e * e);
+      const ptsHyp = [];
+      // Range: Extend further out. Limit was 0.9, now 0.98 of asymptote angle.
+      const limit = beta * 0.98; 
+      for(let th = -limit; th <= limit; th += 0.02) {
+        const r = p / (1 + e * Math.cos(th));
+        const x = r * Math.cos(th);
+        const y = r * Math.sin(th);
+        ptsHyp.push(new THREE.Vector3(x, 0, y));
+      }
+      hyperLine.geometry.setFromPoints(ptsHyp);
+      hyperLine.rotation.y = angleIn + (flybySide * delta / 2);
+      
+      // Update Vectors
+      const vInfLen = 20000;
+      const vInfStartDist = 150000; // Start lines far away
+
+      arrowHelperIn.setDirection(vecVinf_In.clone().normalize());
+      arrowHelperIn.setLength(vInfLen);
+      arrowHelperIn.position.copy(vecVinf_In.clone().normalize().multiplyScalar(-vInfStartDist)); 
+
+      arrowHelperOut.setDirection(vecVinf_Out.clone().normalize());
+      arrowHelperOut.setLength(vInfLen);
+      arrowHelperOut.position.copy(vecVinf_Out.clone().normalize().multiplyScalar(vInfStartDist)); // Place out arrow far out too? Or near planet? Usually V_inf is shown at infinity. Let's put it near planet for context, or far out.
+      // Let's keep arrow near planet, but line extending far.
+      arrowHelperOut.position.set(0,0,0);
+
+      // Update Asymptote Lines (Orbital Paths in Planet Frame)
+      // Incoming Asymptote (Blue): From infinity (-dir) to Origin (approx)
+      // Actually intersection of asymptotes is not origin, but close enough for high Vinf. 
+      // Technically, intersection is at x = a*e, which is usually inside planet or close.
+      // Let's draw lines parallel to V_inf passing through 0 for simplicity, or offset correctly?
+      // Hyperbola focus is at 0,0. Asymptotes intersect at (-c, 0) in Perifocal? No center is (-c,0).
+      // Center is at -a*e distance from focus.
+      // Let's just draw lines matching the V_inf vectors passing through 0 for visual aid.
+      // Incoming: Ends at 0, starts far away.
+      const ptInStart = vecVinf_In.clone().normalize().multiplyScalar(-200000);
+      const ptInEnd = new THREE.Vector3(0,0,0);
+      asymInLine.geometry.setFromPoints([ptInStart, ptInEnd]);
+
+      // Outgoing: Starts at 0, ends far away.
+      const ptOutStart = new THREE.Vector3(0,0,0);
+      const ptOutEnd = vecVinf_Out.clone().normalize().multiplyScalar(200000);
+      asymOutLine.geometry.setFromPoints([ptOutStart, ptOutEnd]);
+
+
+      arrowHelperVp.setDirection(new THREE.Vector3(1,0,0)); // Planet moving +X
+      
+      // B. Helio View (Scale: AU-ish, normalized)
+      const R_HELIO = 20;
+      generateCircle(orbPlanetLine, R_HELIO);
+      planetMark.position.set(R_HELIO, 0, 0); // Planet at +X
+
+      const mu_sun_visual = 1000; 
+      const v_circ_visual = Math.sqrt(mu_sun_visual / R_HELIO);
+      const scaleVel = v_circ_visual / Vp; 
+
+      const vScIn_visual = vecVsc_In.clone().multiplyScalar(scaleVel);
+      const vScOut_visual = vecVsc_Out.clone().multiplyScalar(scaleVel);
+
+      const mapToHelio = (v2d) => {
+        return new THREE.Vector3(v2d.z, 0, -v2d.x);
+      };
+
+      const vIn_H = mapToHelio(vScIn_visual);
+      const vOut_H = mapToHelio(vScOut_visual);
+
+      drawOrbit(orbInLine, mu_sun_visual, posP_helio, vIn_H);
+      drawOrbit(orbOutLine, mu_sun_visual, posP_helio, vOut_H);
+
+      // --- UI Updates ---
+      document.getElementById('val-vp').innerText = Vp.toFixed(1);
+      document.getElementById('val-vinf').innerText = Vinf.toFixed(1);
+      document.getElementById('val-ang').innerText = (angleIn/D2R).toFixed(0);
+      document.getElementById('val-rp').innerText = Rp_alt.toFixed(0);
+
+      document.getElementById('out-turn').innerText = (delta/D2R).toFixed(1) + " deg";
+      document.getElementById('out-e').innerText = e.toFixed(2);
+      document.getElementById('out-vin').innerText = vecVsc_In.length().toFixed(2) + " km/s";
+      document.getElementById('out-vout').innerText = vecVsc_Out.length().toFixed(2) + " km/s";
+      document.getElementById('out-dv').innerText = (vecVsc_Out.length() - vecVsc_In.length()).toFixed(2) + " km/s";
+    }
+
+    const posP_helio = new THREE.Vector3(20, 0, 0); // Constant for Helio
+
+    function generateCircle(line, r) {
+      const pts = [];
+      for(let i=0; i<=64; i++) {
+        const t = (i/64)*Math.PI*2;
+        pts.push(new THREE.Vector3(Math.cos(t)*r, 0, Math.sin(t)*r));
+      }
+      line.geometry.setFromPoints(pts);
+    }
+
+    function drawOrbit(line, mu, rVec, vVec) {
+      const r = rVec.length();
+      const v = vVec.length();
+      const hVec = new THREE.Vector3().crossVectors(rVec, vVec);
+      const ev = new THREE.Vector3().copy(rVec).multiplyScalar(v*v - mu/r).sub( new THREE.Vector3().copy(vVec).multiplyScalar(rVec.dot(vVec)) ).divideScalar(mu);
+      const e = ev.length();
+      const a = 1 / (2/r - v*v/mu);
+
+      const pts = [];
+      if (a > 0 && e < 1) {
+        const p = a * (1 - e*e);
+        const P = ev.clone().normalize();
+        const W = hVec.clone().normalize();
+        const Q = new THREE.Vector3().crossVectors(W, P);
+
+        for(let i=0; i<=100; i++) {
+          const nu = (i/100) * 2 * Math.PI;
+          const rad = p / (1 + e * Math.cos(nu));
+          const pos = new THREE.Vector3()
+            .addScaledVector(P, rad * Math.cos(nu))
+            .addScaledVector(Q, rad * Math.sin(nu));
+          pts.push(pos);
+        }
+      } else {
+        pts.push(rVec);
+        pts.push(rVec.clone().add(vVec)); 
+      }
+      line.geometry.setFromPoints(pts);
+    }
+
+    // --- Inputs ---
+    window.toggleSide = () => {
+      flybySide *= -1;
+      const btn = document.getElementById('btn-side');
+      if(flybySide === -1) {
+        btn.innerText = "Trailing (Gain Energy)";
+        btn.classList.add('bg-slate-700'); btn.classList.remove('bg-rose-700');
+      } else {
+        btn.innerText = "Leading (Lose Energy)";
+        btn.classList.remove('bg-slate-700'); btn.classList.add('bg-rose-700');
+      }
+      updatePhysics();
+    };
+
+    document.querySelectorAll('input').forEach(el => {
+      el.addEventListener('input', updatePhysics);
+    });
+
+    // --- Render Loop ---
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // Update Controls
+      controlsH.update();
+      // Only update P controls if mouse is over inset? 
+      // Hard to detect without more event logic. Just update both.
+      // But P controls on full screen element will rotate P view when interacting with H view.
+      // We will disable P controls update to lock the view for now, or assume user accepts the quirk.
+      // To fix properly requires separate div for events or raycasting.
+      // Let's disable P controls for now to keep inset static and stable.
+      // controlsP.update(); 
+
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      // 1. Render Heliocentric (Main - Full Screen)
+      renderer.setViewport(0, 0, width, height);
+      renderer.setScissor(0, 0, width, height);
+      renderer.setScissorTest(false);
+      renderer.setClearColor(0x020617);
+      renderer.clear();
+      renderer.render(sceneH, cameraH);
+
+      // 2. Render Planet-Centric (Inset - Bottom Left)
+      // Bottom left margin 16px. Size 300px.
+      // WebGL Scissor is (x, y, w, h) from bottom-left.
+      const pxRatio = window.devicePixelRatio;
+      // In CSS: left 1rem (16px), bottom 1rem (16px).
+      const margin = 16;
+      const size = INSET_SIZE;
+      
+      renderer.setScissor(margin * pxRatio, margin * pxRatio, size * pxRatio, size * pxRatio);
+      renderer.setViewport(margin * pxRatio, margin * pxRatio, size * pxRatio, size * pxRatio);
+      renderer.setScissorTest(true);
+      
+      renderer.clearDepth(); // Clear depth buffer so inset renders on top
+      // Optional: Clear color if we want different background for inset, but CSS handles bg color opacity
+      // renderer.setClearColor(0x0f172a, 1); 
+      // renderer.clearColor(); 
+      
+      renderer.render(sceneP, cameraP);
+    }
+
+    // Init
+    updatePhysics();
+    animate();
+
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.setSize(w, h);
+      
+      // Main Camera
+      cameraH.aspect = w / h;
+      cameraH.updateProjectionMatrix();
+      
+      // Inset Camera - Aspect ratio is square (300x300)
+      cameraP.aspect = 1.0;
+      cameraP.updateProjectionMatrix();
+      
+      updatePhysics();
+    });
+  </script>
+</body>
+</html>
