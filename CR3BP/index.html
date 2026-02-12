@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CR3BP Interactive Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0b1121; color: #f8fafc; overflow: hidden; font-family: 'Inter', system-ui, sans-serif; height: 100vh; height: 100dvh; }
+        canvas { cursor: crosshair; touch-action: none; display: block; }
+        .control-panel { background: rgba(11, 17, 33, 0.95); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #22d3ee;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+        }
+    </style>
+</head>
+<body class="flex flex-col">
+    <div id="header" class="p-4 control-panel z-20">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-6">
+            <div>
+                <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">CR3BP Dynamics Explorer</h1>
+                <div class="flex items-center gap-3 mt-1">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Curtis Nomenclature (π₂)</p>
+                    <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Scroll to Zoom | Drag to Pan</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-6">
+                <div class="flex flex-col">
+                    <div class="flex justify-between mb-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mass Ratio (π₂)</label>
+                        <span id="pi2-val" class="text-cyan-400 font-mono text-xs">0.0121</span>
+                    </div>
+                    <input type="range" id="pi2-slider" min="0.000001" max="0.5" step="any" value="0.0121" class="w-48 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="setPreset(0.01215)" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-400 px-2 py-1 rounded border border-slate-700 transition">Earth-Moon</button>
+                        <button onclick="setPreset(0.000003)" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-400 px-2 py-1 rounded border border-slate-700 transition">Sun-Earth</button>
+                        <button onclick="setPreset(0.000953)" class="text-[9px] bg-slate-800 hover:bg-slate-700 text-slate-400 px-2 py-1 rounded border border-slate-700 transition">Sun-Jupiter</button>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button id="reset-btn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded text-xs font-bold transition border border-slate-700">Clear Path</button>
+                    <button id="spawn-lagrange" class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded text-xs font-bold transition shadow-lg shadow-cyan-900/20">Spawn L1-L5</button>
+                </div>
+            </div>
+
+            <div class="text-right hidden xl:block text-[10px] text-slate-500 uppercase tracking-widest leading-relaxed">
+                <p><span class="text-blue-500">●</span> Primary ($m_1$)</p>
+                <p><span class="text-red-500">●</span> Secondary ($m_2$)</p>
+                <p><span class="text-yellow-500">●</span> Lagrange Points</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="relative flex-grow bg-[#050810] overflow-hidden">
+        <canvas id="simCanvas" class="w-full h-full"></canvas>
+        
+        <!-- Status Panel -->
+        <div class="absolute bottom-12 left-8 p-4 rounded-xl bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-xl z-30 min-w-[180px]">
+            <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-800 pb-2">Effective Potential (Ω)</h3>
+            <div id="status-panel" class="space-y-1.5 font-mono text-[11px]">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">L1:</span>
+                    <span id="l1-pot" class="text-yellow-500 font-bold">---</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">L2:</span>
+                    <span id="l2-pot" class="text-yellow-500 font-bold">---</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">L3:</span>
+                    <span id="l3-pot" class="text-yellow-500 font-bold">---</span>
+                </div>
+                <div class="mt-3 pt-2 border-t border-slate-800 text-[10px] text-slate-400 italic leading-tight">
+                    <span class="text-yellow-500 font-bold">●</span> Zero Velocity Curves
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const pi2Slider = document.getElementById('pi2-slider');
+        const pi2ValDisp = document.getElementById('pi2-val');
+        const resetBtn = document.getElementById('reset-btn');
+        const spawnBtn = document.getElementById('spawn-lagrange');
+
+        const bgCanvas = document.createElement('canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+
+        let width, height;
+        let scale = 250;
+        let offsetX = 0;
+        let offsetY = 0;
+        let pi2 = 0.0121;
+        let particles = [];
+        let lagrangePoints = [];
+        let isDragging = false;
+        let lastMouseX, lastMouseY;
+        let needsBgRedraw = true;
+
+        const OMEGA_CONST = 1.0; 
+
+        class Particle {
+            constructor(x, y, vx = 0, vy = 0, color = '#22d3ee') {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.path = [];
+                this.maxPath = 600;
+                this.color = color;
+            }
+
+            getDerivatives(x, y, vx, vy) {
+                const x1 = -pi2;
+                const x2 = 1 - pi2;
+                const r1 = Math.sqrt((x - x1)**2 + y**2);
+                const r2 = Math.sqrt((x - x2)**2 + y**2);
+
+                if (r1 < 0.0001 || r2 < 0.0001) return [0, 0, 0, 0];
+
+                const dvx = 2 * OMEGA_CONST * vy + OMEGA_CONST**2 * x - (1 - pi2) * (x - x1) / Math.pow(r1, 3) - pi2 * (x - x2) / Math.pow(r2, 3);
+                const dvy = -2 * OMEGA_CONST * vx + OMEGA_CONST**2 * y - (1 - pi2) * y / Math.pow(r1, 3) - pi2 * y / Math.pow(r2, 3);
+
+                return [vx, vy, dvx, dvy];
+            }
+
+            update(dt) {
+                // RK4 implementation
+                const k1 = this.getDerivatives(this.x, this.y, this.vx, this.vy);
+                const k2 = this.getDerivatives(this.x + k1[0]*dt/2, this.y + k1[1]*dt/2, this.vx + k1[2]*dt/2, this.vy + k1[3]*dt/2);
+                const k3 = this.getDerivatives(this.x + k2[0]*dt/2, this.y + k2[1]*dt/2, this.vx + k2[2]*dt/2, this.vy + k2[3]*dt/2);
+                const k4 = this.getDerivatives(this.x + k3[0]*dt, this.y + k3[1]*dt, this.vx + k3[2]*dt, this.vy + k3[3]*dt);
+
+                this.x += (dt/6) * (k1[0] + 2*k2[0] + 2*k3[0] + k4[0]);
+                this.y += (dt/6) * (k1[1] + 2*k2[1] + 2*k3[1] + k4[1]);
+                this.vx += (dt/6) * (k1[2] + 2*k2[2] + 2*k3[2] + k4[2]);
+                this.vy += (dt/6) * (k1[3] + 2*k2[3] + 2*k3[3] + k4[3]);
+
+                this.path.push({x: this.x, y: this.y});
+                if (this.path.length > this.maxPath) this.path.shift();
+            }
+
+            draw() {
+                if (this.path.length < 2) return;
+                ctx.beginPath();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.4;
+                ctx.moveTo(worldToScreenX(this.path[0].x), worldToScreenY(this.path[0].y));
+                for (let i = 1; i < this.path.length; i++) {
+                    ctx.lineTo(worldToScreenX(this.path[i].x), worldToScreenY(this.path[i].y));
+                }
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(worldToScreenX(this.x), worldToScreenY(this.y), 3.5, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = 1.0;
+                ctx.fill();
+            }
+        }
+
+        function resize() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            width = canvas.width = rect.width;
+            height = canvas.height = rect.height;
+            bgCanvas.width = width;
+            bgCanvas.height = height;
+            needsBgRedraw = true;
+        }
+
+        function worldToScreenX(x) { return width / 2 + (x * scale) + offsetX; }
+        function worldToScreenY(y) { return height / 2 - (y * scale) + offsetY; }
+        function screenToWorldX(sx) { return (sx - width / 2 - offsetX) / scale; }
+        function screenToWorldY(sy) { return (height / 2 + offsetY - sy) / scale; }
+
+        function getPotential(x, y) {
+            const x1 = -pi2;
+            const x2 = 1 - pi2;
+            const r1_sq = (x - x1)**2 + y**2;
+            const r2_sq = (x - x2)**2 + y**2;
+            const p1 = r1_sq < 1e-12 ? 2000 : (1 - pi2) / Math.sqrt(r1_sq);
+            const p2 = r2_sq < 1e-12 ? 2000 : pi2 / Math.sqrt(r2_sq);
+            return 0.5 * (x**2 + y**2) + p1 + p2;
+        }
+
+        function findLagrangePoints() {
+            const x1 = -pi2;
+            const x2 = 1 - pi2;
+            const pts = [];
+
+            pts.push({x: 0.5 - pi2, y: Math.sqrt(3)/2, name: 'L4'});
+            pts.push({x: 0.5 - pi2, y: -Math.sqrt(3)/2, name: 'L5'});
+
+            const rh = Math.pow(pi2 / 3, 1/3);
+
+            const solveL1 = () => {
+                let x = x2 - rh * 0.9; 
+                for (let i = 0; i < 120; i++) {
+                    const r1 = Math.abs(x - x1);
+                    const r2 = Math.abs(x - x2);
+                    const f = x - (1-pi2)/Math.pow(r1, 2) + pi2/Math.pow(r2, 2);
+                    const df = 1 + 2*(1-pi2)/Math.pow(r1, 3) + 2*pi2/Math.pow(r2, 3);
+                    x -= f/df;
+                }
+                return x;
+            };
+
+            const solveL2 = () => {
+                let x = x2 + rh * 1.1;
+                for (let i = 0; i < 120; i++) {
+                    const r1 = Math.abs(x - x1);
+                    const r2 = Math.abs(x - x2);
+                    const f = x - (1-pi2)/Math.pow(r1, 2) - pi2/Math.pow(r2, 2);
+                    const df = 1 + 2*(1-pi2)/Math.pow(r1, 3) + 2*pi2/Math.pow(r2, 3);
+                    x -= f/df;
+                }
+                return x;
+            };
+
+            const solveL3 = () => {
+                let x = x1 - 1.0;
+                for (let i = 0; i < 120; i++) {
+                    const r1 = Math.abs(x1 - x);
+                    const r2 = Math.abs(x2 - x);
+                    const f = x + (1-pi2)/Math.pow(r1, 2) + pi2/Math.pow(r2, 2);
+                    const df = 1 + 2*(1-pi2)/Math.pow(r1, 3) + 2*pi2/Math.pow(r2, 3);
+                    x -= f/df;
+                }
+                return x;
+            };
+
+            pts.push({x: solveL1(), y: 0, name: 'L1'});
+            pts.push({x: solveL2(), y: 0, name: 'L2'});
+            pts.push({x: solveL3(), y: 0, name: 'L3'});
+            
+            pts.forEach(p => p.potential = getPotential(p.x, p.y));
+            
+            document.getElementById('l1-pot').innerText = pts.find(p => p.name==='L1')?.potential.toFixed(5);
+            document.getElementById('l2-pot').innerText = pts.find(p => p.name==='L2')?.potential.toFixed(5);
+            document.getElementById('l3-pot').innerText = pts.find(p => p.name==='L3')?.potential.toFixed(5);
+
+            return pts;
+        }
+
+        function lerpPoint(p1, p2, v1, v2, target) {
+            const t = (target - v1) / (v2 - v1);
+            return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
+        }
+
+        function drawBackground() {
+            if (!needsBgRedraw) return;
+            bgCtx.fillStyle = '#0b1121';
+            bgCtx.fillRect(0, 0, width, height);
+
+            const step = 5; 
+            const contourValues = [];
+            lagrangePoints.forEach(lp => contourValues.push(lp.potential));
+            for (let v = 1.3; v < 4.0; v += 0.05) contourValues.push(v);
+
+            for (let x = 0; x < width; x += step) {
+                for (let y = 0; y < height; y += step) {
+                    const coords = [
+                        {x: screenToWorldX(x), y: screenToWorldY(y)},
+                        {x: screenToWorldX(x + step), y: screenToWorldY(y)},
+                        {x: screenToWorldX(x + step), y: screenToWorldY(y + step)},
+                        {x: screenToWorldX(x), y: screenToWorldY(y + step)}
+                    ];
+                    const vals = coords.map(c => getPotential(c.x, c.y));
+                    
+                    contourValues.forEach((target, idx) => {
+                        const isCritical = idx < 5;
+                        const segments = [];
+                        for (let i = 0; i < 4; i++) {
+                            const next = (i + 1) % 4;
+                            if ((vals[i] <= target && vals[next] > target) || (vals[i] > target && vals[next] <= target)) {
+                                segments.push(lerpPoint(
+                                    {x: x + (i===1||i===2?step:0), y: y + (i===2||i===3?step:0)},
+                                    {x: x + (next===1||next===2?step:0), y: y + (next===2||next===3?step:0)},
+                                    vals[i], vals[next], target
+                                ));
+                            }
+                        }
+                        if (segments.length >= 2) {
+                            bgCtx.strokeStyle = isCritical ? 'rgba(234, 179, 8, 0.95)' : 'rgba(51, 65, 85, 0.35)';
+                            bgCtx.lineWidth = isCritical ? 2.2 : 0.8;
+                            bgCtx.beginPath();
+                            bgCtx.moveTo(segments[0].x, segments[0].y);
+                            bgCtx.lineTo(segments[1].x, segments[1].y);
+                            bgCtx.stroke();
+                        }
+                    });
+                }
+            }
+            needsBgRedraw = false;
+        }
+
+        function drawScene() {
+            drawBackground();
+            ctx.drawImage(bgCanvas, 0, 0);
+
+            const x1 = -pi2;
+            const x2 = 1 - pi2;
+
+            const s1x = worldToScreenX(x1);
+            const s1y = worldToScreenY(0);
+            const grad1 = ctx.createRadialGradient(s1x, s1y, 0, s1x, s1y, 14);
+            grad1.addColorStop(0, '#60a5fa'); grad1.addColorStop(1, '#1e3a8a');
+            ctx.beginPath(); ctx.arc(s1x, s1y, 11, 0, Math.PI * 2);
+            ctx.fillStyle = grad1; ctx.shadowBlur = 20; ctx.shadowColor = 'rgba(59, 130, 246, 0.4)';
+            ctx.fill(); ctx.shadowBlur = 0;
+
+            const s2x = worldToScreenX(x2);
+            const s2y = worldToScreenY(0);
+            const grad2 = ctx.createRadialGradient(s2x, s2y, 0, s2x, s2y, 7);
+            grad2.addColorStop(0, '#f87171'); grad2.addColorStop(1, '#7f1d1d');
+            ctx.beginPath(); ctx.arc(s2x, s2y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = grad2; ctx.fill();
+
+            lagrangePoints.forEach(p => {
+                const sx = worldToScreenX(p.x);
+                const sy = worldToScreenY(p.y);
+                if (sx < 0 || sx > width || sy < 0 || sy > height) return;
+                
+                ctx.beginPath(); ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#facc15'; ctx.fill();
+                ctx.strokeStyle = '#0b1121'; ctx.lineWidth = 1.5; ctx.stroke();
+                
+                ctx.fillStyle = '#fff'; ctx.font = '900 11px Inter, sans-serif';
+                ctx.shadowBlur = 4; ctx.shadowColor = 'black';
+                ctx.fillText(p.name, sx + 12, sy + 4);
+                ctx.shadowBlur = 0;
+            });
+
+            particles.forEach(p => { p.update(0.016); p.draw(); });
+            requestAnimationFrame(drawScene);
+        }
+
+        window.setPreset = (val) => {
+            pi2 = val;
+            pi2Slider.value = val;
+            pi2ValDisp.innerText = val < 0.0001 ? val.toExponential(4) : val.toFixed(4);
+            lagrangePoints = findLagrangePoints();
+            needsBgRedraw = true;
+        };
+
+        pi2Slider.addEventListener('input', (e) => {
+            pi2 = parseFloat(e.target.value);
+            pi2ValDisp.innerText = pi2 < 0.0001 ? pi2.toExponential(4) : pi2.toFixed(4);
+            lagrangePoints = findLagrangePoints();
+            needsBgRedraw = true;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const zoomSpeed = 1.2;
+            const mouseX = e.clientX;
+            const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+            const wx = screenToWorldX(mouseX);
+            const wy = screenToWorldY(mouseY);
+            if (e.deltaY < 0) scale *= zoomSpeed;
+            else scale /= zoomSpeed;
+            offsetX = mouseX - width / 2 - wx * scale;
+            offsetY = mouseY - height / 2 + wy * scale;
+            needsBgRedraw = true;
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0) {
+                isDragging = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                this.mouseDownTime = Date.now();
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                offsetX += (e.clientX - lastMouseX);
+                offsetY += (e.clientY - lastMouseY);
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                needsBgRedraw = true;
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                if (Date.now() - this.mouseDownTime < 250) {
+                    const rect = canvas.getBoundingClientRect();
+                    const mx = e.clientX - rect.left;
+                    const my = e.clientY - rect.top;
+                    const wx = screenToWorldX(mx);
+                    const wy = screenToWorldY(my);
+                    particles.push(new Particle(wx, wy, 0, 0));
+                }
+                isDragging = false;
+            }
+        });
+
+        resetBtn.addEventListener('click', () => { particles = []; });
+        spawnBtn.addEventListener('click', () => {
+            lagrangePoints.forEach(p => {
+                particles.push(new Particle(p.x + 0.001 * (p.x/Math.abs(p.x||1)), p.y + 0.001, 0, 0, '#fbbf24'));
+            });
+        });
+
+        window.addEventListener('resize', resize);
+        window.onload = function() {
+            resize();
+            lagrangePoints = findLagrangePoints();
+            requestAnimationFrame(drawScene);
+        };
+    </script>
+</body>
+</html>

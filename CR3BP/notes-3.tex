@@ -1,0 +1,79 @@
+\documentclass[11pt, a4paper]{article}
+
+% --- UNIVERSAL PREAMBLE BLOCK ---
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2cm, right=2cm]{geometry}
+\usepackage{fontspec}
+\usepackage[english, bidi=basic, provide=*]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\babelprovide[import, onchar=ids fonts]{english}
+\babelfont{rm}{Noto Sans}
+
+% Hyperref must be last
+\usepackage[colorlinks=true, linkcolor=blue]{hyperref}
+
+\title{Lecture Notes: From Inertial Dynamics to the Circular Restricted Three-Body Problem}
+\author{Orbital Mechanics Course Materials}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{The Inertial Foundation (Chapter 1)}
+To understand the complexity of the Three-Body Problem, we must first recall the absolute dynamics of the Two-Body Problem (2BP). In an inertial reference frame $(X, Y, Z)$, the motion of a mass $m_i$ is governed by Newton's Second Law and the Law of Universal Gravitation:
+\begin{equation}
+    m_i \ddot{\vec{R}}_i = \sum_{j=1, j \neq i}^{n} \frac{G m_i m_j}{r_{ij}^3} \vec{r}_{ij}
+\end{equation}
+For the 2BP, this leads to the conservation of specific mechanical energy $\varepsilon$ and specific angular momentum $\vec{h}$. These quantities are invariant because the gravitational field is static (time-independent) in the inertial frame.
+
+\section{Transition to the CR3BP (Chapter 2)}
+The Circular Restricted Three-Body Problem (CR3BP) introduces two major simplifications to the general Three-Body Problem:
+\begin{enumerate}
+    \item \textbf{Restricted:} We assume the third body ($m_3$, the spacecraft) has negligible mass ($m_3 \to 0$). Thus, it does not influence the orbits of the two primaries ($m_1$ and $m_2$).
+    \item \textbf{Circular:} We assume the primaries revolve around their common center of mass (barycenter) in perfect circular orbits.
+\end{enumerate}
+
+\subsection{The Rotating (Synodic) Frame}
+Because the gravitational field of $m_1$ and $m_2$ is rotating in the inertial frame, the energy of $m_3$ is not conserved in that frame. To find a constant of motion, we transform our equations into a \textbf{Synodic Frame} $(x, y, z)$ that rotates with an angular velocity $\vec{\omega}$ equal to the orbital mean motion of the primaries.
+
+Using the kinematic relations for a rotating frame (\textit{Curtis Section 1.7}):
+\begin{equation}
+    \vec{a}_{inertial} = \vec{a}_{rel} + 2\vec{\omega} \times \vec{v}_{rel} + \vec{\omega} \times (\vec{\omega} \times \vec{r})
+\end{equation}
+In the CR3BP, this results in the appearance of two "fictitious" accelerations: the \textbf{Coriolis acceleration} ($2\vec{\omega} \times \vec{v}_{rel}$) and the \textbf{Centrifugal acceleration} ($\vec{\omega} \times (\vec{\omega} \times \vec{r})$).
+
+\section{The Jacobi Constant: Conservation in Chaos}
+In the rotating frame, the equations of motion are time-independent. By taking the dot product of the equations of motion with the velocity vector $\vec{v} = [\dot{x}, \dot{y}, \dot{z}]^T$ and integrating with respect to time, we derive the \textbf{Jacobi Constant} ($C$).
+
+The expression for $C$ is often written in terms of the \textbf{Effective Potential} (or Pseudo-Potential), $\Omega$:
+\begin{equation}
+    C = 2\Omega(x, y, z) - v^2
+\end{equation}
+where:
+\begin{equation}
+    \Omega(x, y, z) = \underbrace{\frac{1}{2}\omega^2(x^2 + y^2)}_{\text{Centrifugal Potential}} + \underbrace{\frac{\mu_1}{r_1} + \frac{\mu_2}{r_2}}_{\text{Gravitational Potential}}
+\end{equation}
+\textbf{Note:} Unlike the 2BP, where energy is a property of the orbit, the Jacobi Constant is the \textit{only} conserved scalar in the CR3BP. It defines the \textbf{Zero Velocity Surfaces} (where $v=0$) that dictate where a spacecraft can and cannot travel.
+
+\section{Glossary of Terms}
+\begin{description}
+    \item[Barycenter] The center of mass of the two primary bodies. In the CR3BP, the origin of the synodic frame is placed here.
+    \item[Libration Points] Another name for Lagrange points. These are equilibrium points where the gravitational and centrifugal forces perfectly cancel out in the rotating frame.
+    \item[Mass Parameter ($\pi_2$)] The ratio of the secondary mass to the total system mass: $\pi_2 = m_2 / (m_1 + m_2)$. This determines the geometry of the Lagrange points.
+    \item[Pseudo-Potential ($\Omega$)] A scalar field representing the combined effects of gravity and the centrifugal force in a rotating frame.
+    \item[Synodic Frame] A non-inertial reference frame that rotates at the same rate as the binary system, making the two primaries appear stationary.
+    \item[Zero Velocity Curves (ZVC)] The boundary lines in the $x$-$y$ plane where a spacecraft with a specific Jacobi Constant would have zero velocity. These act as "forbidden zone" boundaries.
+\end{description}
+
+\section{Practical Problem: Visualizing the Gateways}
+Refer to the \textit{CR3BP Interactive Simulator}. 
+\begin{enumerate}
+    \item Observe the "Saddle" points at $L_1$ and $L_2$. These are the lowest energy points where the ZVCs first "break open" to allow passage.
+    \item For a spacecraft to move from the Primary to the Secondary body, its Jacobi Constant must be \textbf{lower} than the potential at $L_1$ ($C < C_{L1}$). 
+\end{enumerate}
+
+\end{document}

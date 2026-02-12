@@ -1,0 +1,62 @@
+\documentclass[11pt, a4paper]{article}
+
+% --- UNIVERSAL PREAMBLE BLOCK ---
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=2cm, right=2cm]{geometry}
+\usepackage{fontspec}
+\usepackage[english, bidi=basic, provide=*]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\babelprovide[import, onchar=ids fonts]{english}
+\babelfont{rm}{Noto Sans}
+
+% Hyperref must be last
+\usepackage[colorlinks=true, linkcolor=blue]{hyperref}
+
+\title{Lecture Notes: Dynamics in the Circular Restricted Three-Body Problem}
+\author{Orbital Mechanics Course Materials}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Recap: The Synodic Frame}
+As derived in \textit{Curtis Section 2.10}, we describe the motion of a third body $m_3$ in a frame that rotates with the primaries $m_1$ and $m_2$. In this frame, the primaries are fixed at positions $(-\pi_2, 0)$ and $(1-\pi_2, 0)$. 
+
+\section{The Jacobi Constant and Zero Velocity Curves}
+The only constant of motion in the CR3BP is the \textbf{Jacobi Constant} ($C$). By rearranging the energy equation, we find the "Effective Potential" ($\Omega$):
+\begin{equation}
+    \Omega(x, y, z) = \frac{1}{2}(x^2 + y^2) + \frac{1-\pi_2}{r_1} + \frac{\pi_2}{r_2}
+\end{equation}
+The speed of the spacecraft $v$ is related to this potential by:
+\begin{equation}
+    v^2 = 2\Omega(x, y, z) - C
+\end{equation}
+\textbf{Lecture Observation:} In our interactive simulator, the yellow lines represent the regions where $v=0$ for a given $C$. These are the \textbf{Zero Velocity Curves (ZVC)}. If $C$ is high, the regions where $v^2 > 0$ are disconnected, meaning a spacecraft is physically trapped near a primary.
+
+\section{The Five Libration (Lagrange) Points}
+Using the simulator, we can observe distinct behaviors at the equilibrium points:
+
+\begin{enumerate}
+    \item \textbf{The Gatekeepers ($L_1, L_2$):} These points exist at the lowest "energy passes" between the bodies. In the Sun-Earth system ($\pi_2 \approx 3 \times 10^{-6}$), notice how these points are extremely close to the Earth ($m_2$). 
+    \item \textbf{Instability (GNC Context):} Dropping a particle at $L_1, L_2$, or $L_3$ leads to a rapid exponential drift. In real-world astrodynamics (e.g., the James Webb Space Telescope at $L_2$), active \textit{Station Keeping} is required to counter this instability.
+    \item \textbf{The Equilateral Points ($L_4, L_5$):} These are local maxima of the potential. While they seem like "hilltops," the Coriolis force in the rotating frame creates a stabilizing effect, causing particles to oscillate in "Tadpole" or "Horseshoe" orbits rather than flying away.
+\end{enumerate}
+
+\section{System Scaling: Earth-Moon vs. Sun-Earth}
+\begin{itemize}
+    \item \textbf{Earth-Moon ($\pi_2 \approx 0.012$):} The Lagrange points are well-separated. This system is ideal for studying Near-Rectilinear Halo Orbits (NRHO).
+    \item \textbf{Sun-Earth ($\pi_2 \approx 3 \times 10^{-6}$):} The Earth's influence is dominated by the Sun except within its very small \textit{Hill Sphere}. In the simulator, you must zoom in significantly to see the $L_1$ and $L_2$ points flanking the Earth.
+\end{itemize}
+
+\section{Practical Problem Solving}
+To find the position of the collinear points, students must solve the quintic equations provided in \textit{Curtis Table 2.4}. For small $\pi_2$, the distance $\gamma$ from the secondary body to $L_1$ or $L_2$ can be approximated by the Hill Radius:
+\begin{equation}
+    \gamma \approx \left( \frac{\pi_2}{3} \right)^{1/3}
+\end{equation}
+Compare the values computed in the simulator's status panel with this approximation for the Sun-Earth case.
+
+\end{document}
