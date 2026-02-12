@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbital Mechanics Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+    <style type="text/css">
+      body { margin: 0; overflow: hidden; background-color: #0f172a; color: #e2e8f0; font-family: monospace; }
+      canvas { display: block; }
+      
+      /* Custom Scrollbar for controls */
+      ::-webkit-scrollbar { width: 8px; }
+      ::-webkit-scrollbar-track { background: #1e293b; }
+      ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+      
+      .slider-label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.25rem; }
+      .slider-input { width: 100%; accent-color: #38bdf8; cursor: pointer; }
+      .input-group { margin-bottom: 1rem; }
+      .tab-active { border-bottom: 2px solid #38bdf8; color: #38bdf8; }
+      .tab-inactive { color: #94a3b8; }
+      .panel { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(4px); border: 1px solid #334155; }
+      
+      /* Number Input Styling */
+      input[type=number] {
+          background-color: #1e293b;
+          border: 1px solid #475569;
+          color: #f8fafc;
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.25rem;
+          font-family: monospace;
+          font-size: 0.875rem;
+          width: 100%;
+          transition: border-color 0.2s;
+      }
+      input[type=number]:focus {
+          outline: none;
+          border-color: #38bdf8;
+      }
+      /* Hide spinners */
+      input[type=number]::-webkit-inner-spin-button, 
+      input[type=number]::-webkit-outer-spin-button { 
+          -webkit-appearance: none; 
+          margin: 0; 
+      }
+      input[type=number] { -moz-appearance: textfield; }
+    </style>
+  </head>
+  <body>
+    
+    <!-- Main 3D Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0"></div>
+    
+    <!-- UI Overlay -->
+    <div class="absolute top-4 right-4 w-80 flex flex-col gap-4 max-h-[95vh] overflow-y-auto z-10">
+      
+      <!-- Panel 1: Orbital Elements -->
+      <div class="panel p-4 rounded-lg shadow-lg">
+        <h2 class="text-lg font-bold text-sky-400 mb-3 border-b border-slate-700 pb-2">Initial Orbit Elements</h2>
+        
+        <div class="input-group">
+          <div class="slider-label">Central Body (&mu;)</div>
+          <input type="number" id="in-mu" value="3986">
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="input-group">
+            <div class="slider-label">Semimajor Axis (a)</div>
+            <input type="number" id="in-a" step="0.1" value="15">
+          </div>
+          
+          <div class="input-group">
+            <div class="slider-label">Eccentricity (e)</div>
+            <input type="number" id="in-e" step="0.01" min="0" max="0.99" value="0.3">
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="input-group">
+            <div class="slider-label">Inclination (i)</div>
+            <input type="number" id="in-i" step="0.1" value="15">
+          </div>
+          
+          <div class="input-group">
+            <div class="slider-label">RAAN (&Omega;)</div>
+            <input type="number" id="in-raan" step="1" value="45">
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="input-group">
+            <div class="slider-label">Arg. Periapsis (&omega;)</div>
+            <input type="number" id="in-w" step="1" value="0">
+          </div>
+          
+          <div class="input-group">
+            <div class="slider-label">True Anomaly (&nu;)</div>
+            <input type="number" id="in-nu" step="1" value="90">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Panel 2: State Vector Readout -->
+      <div class="panel p-4 rounded-lg shadow-lg text-xs font-mono">
+        <h2 class="text-lg font-bold text-emerald-400 mb-3 border-b border-slate-700 pb-2">Current State</h2>
+        <div class="flex flex-col gap-3">
+          <div>
+            <div class="text-slate-400">Position (r)</div>
+            <div id="out-r" class="text-white"></div>
+            <div id="out-rmag" class="text-emerald-500 mt-1"></div>
+          </div>
+          <div>
+            <div class="text-slate-400">Velocity (v1)</div>
+            <div id="out-v" class="text-white"></div>
+            <div id="out-vmag" class="text-emerald-500 mt-1"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Panel 3: Delta V Controls -->
+      <div class="panel p-4 rounded-lg shadow-lg">
+        <h2 class="text-lg font-bold text-rose-400 mb-3 border-b border-slate-700 pb-2">Maneuver (&Delta;V)</h2>
+        
+        <!-- Tabs -->
+        <div class="flex mb-4 border-b border-slate-700">
+          <button id="tab-btn-1" class="flex-1 py-2 text-sm font-bold tab-active" onclick="switchTab(1)">Velocity Frame</button>
+          <button id="tab-btn-2" class="flex-1 py-2 text-sm font-bold tab-inactive" onclick="switchTab(2)">Local Horizon</button>
+        </div>
+        
+        <!-- Tab 1 Content: Velocity Relative (NTW) -->
+        <div id="tab-content-1">
+          <div class="input-group">
+            <div class="slider-label"><span class="text-rose-300">Prograde (Tangent)</span><span id="val-dv-pro"></span></div>
+            <input type="range" id="in-dv-pro" min="-5" max="5" step="0.1" value="0" class="slider-input">
+          </div>
+          <div class="input-group">
+            <div class="slider-label"><span class="text-rose-300">Normal (In-Plane)</span><span id="val-dv-norm"></span></div>
+            <input type="range" id="in-dv-norm" min="-5" max="5" step="0.1" value="0" class="slider-input">
+          </div>
+          <div class="input-group">
+            <div class="slider-label"><span class="text-rose-300">Binormal (Out-Plane)</span><span id="val-dv-bi"></span></div>
+            <input type="range" id="in-dv-bi" min="-5" max="5" step="0.1" value="0" class="slider-input">
+          </div>
+        </div>
+        
+        <!-- Tab 2 Content: Local Horizon (RSW) -->
+        <div id="tab-content-2" class="hidden">
+          <div class="input-group">
+            <div class="slider-label"><span class="text-amber-300">Vertical (Radial)</span><span id="val-dv-rad"></span></div>
+            <input type="range" id="in-dv-rad" min="-5" max="5" step="0.1" value="0" class="slider-input">
+          </div>
+          <div class="input-group">
+            <div class="slider-label"><span class="text-amber-300">Horiz. (In-Plane)</span><span id="val-dv-hor"></span></div>
+            <input type="range" id="in-dv-hor" min="-5" max="5" step="0.1" value="0" class="slider-input">
+          </div>
+          <div class="input-group">
+            <div class="slider-label"><span class="text-amber-300">Horiz. (Out-Plane)</span><span id="val-dv-oop"></span></div>
+            <input type="range" id="in-dv-oop" min="-5" max="5" step="0.1" value="0" class="slider-input">
+          </div>
+        </div>
+        
+        <div class="mt-3 pt-3 border-t border-slate-700 text-xs font-mono">
+          <div class="text-slate-400">Resulting Velocity (v2)</div>
+          <div id="out-v2" class="text-white"></div>
+          <div id="out-v2mag" class="text-rose-500 mt-1"></div>
+        </div>
+      </div>
+      
+    </div>
+    
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      
+      // --- Global State ---
+      let activeTab = 1; // 1 = NTW, 2 = RSW
+      
+      // --- Scene Setup ---
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(25, 20, 25);
+      camera.up.set(0, 1, 0); // Y is Up
+      
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById('canvas-container').appendChild(renderer.domElement);
+      
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      
+      // --- Objects ---
+      
+      // 1. Central Body
+      const geometryPlanet = new THREE.SphereGeometry(2, 32, 32);
+      const materialPlanet = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.3 });
+      const planet = new THREE.Mesh(geometryPlanet, materialPlanet);
+      const core = new THREE.Mesh(new THREE.SphereGeometry(1.95, 32, 32), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+      planet.add(core);
+      scene.add(planet);
+      
+      // 2. Reference Grid
+      const gridHelper = new THREE.GridHelper(100, 50, 0x334155, 0x1e293b);
+      scene.add(gridHelper);
+      
+      // 3. Spacecraft
+      const shipGeo = new THREE.ConeGeometry(0.4, 1, 16);
+      shipGeo.rotateX(Math.PI / 2); 
+      const shipMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const spacecraft = new THREE.Mesh(shipGeo, shipMat);
+      scene.add(spacecraft);
+      
+      // 4. Local Axes Helper (attached to spacecraft)
+      const localAxes = new THREE.Group();
+      const axisLen = 2; // Reduced from 4
+      // ArrowHelper(dir, origin, length, color, headLength, headWidth)
+      // Setting headLength to 0 effectively removes the arrow head
+      const axisX = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), axisLen, 0x38bdf8, 0, 0);
+      const axisY = new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,0,0), axisLen, 0x38bdf8, 0, 0);
+      const axisZ = new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), axisLen, 0x38bdf8, 0, 0);
+      
+      localAxes.add(axisX);
+      localAxes.add(axisY);
+      localAxes.add(axisZ);
+      spacecraft.add(localAxes);
+      
+      // 5. Velocity Vectors
+      const velArrow1 = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0x38bdf8, 0.5, 0.3);
+      scene.add(velArrow1);
+      
+      const velArrow2 = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0xf43f5e, 0.5, 0.3);
+      scene.add(velArrow2);
+      
+      // 6. Orbit Lines
+      const orbit1Line = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x38bdf8 }));
+      scene.add(orbit1Line);
+      
+      const orbit2Line = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xf43f5e, dashSize: 1, gapSize: 0.5 }));
+      scene.add(orbit2Line);
+      
+      // 6. Apse Lines
+      const apseMat1 = new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.4, dashSize: 0.5, gapSize: 0.2 });
+      const apseMat2 = new THREE.LineBasicMaterial({ color: 0xfca5a5, transparent: true, opacity: 0.4, dashSize: 0.5, gapSize: 0.2 });
+      
+      const apseLine1 = new THREE.Line(new THREE.BufferGeometry(), apseMat1);
+      scene.add(apseLine1);
+      const apseLine2 = new THREE.Line(new THREE.BufferGeometry(), apseMat2);
+      scene.add(apseLine2);
+      
+      
+      // --- Math Helpers ---
+      
+      const D2R = Math.PI / 180.0;
+      const R2D = 180.0 / Math.PI;
+      
+      class Vector3 {
+        constructor(x, y, z) { this.x = x; this.y = y; this.z = z; }
+        add(v) { return new Vector3(this.x + v.x, this.y + v.y, this.z + v.z); }
+        sub(v) { return new Vector3(this.x - v.x, this.y - v.y, this.z - v.z); }
+        scale(s) { return new Vector3(this.x * s, this.y * s, this.z * s); }
+        mag() { return Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z); }
+        dot(v) { return this.x*v.x + this.y*v.y + this.z*v.z; }
+        cross(v) {
+          return new Vector3(
+            this.y * v.z - this.z * v.y,
+            this.z * v.x - this.x * v.z,
+            this.x * v.y - this.y * v.x
+          );
+        }
+        normalize() {
+          const m = this.mag();
+          if (m === 0) return new Vector3(0,0,0);
+          return new Vector3(this.x/m, this.y/m, this.z/m);
+        }
+        clone() { return new Vector3(this.x, this.y, this.z); }
+      }
+      
+      function getStateFromElements(mu, a, e, i_deg, raan_deg, w_deg, nu_deg) {
+        const i = i_deg * D2R;
+        const raan = raan_deg * D2R;
+        const w = w_deg * D2R;
+        const nu = nu_deg * D2R;
+        
+        const p = a * (1 - e * e);
+        const r_mag = p / (1 + e * Math.cos(nu));
+        
+        // Perifocal
+        const r_pqw = new Vector3(r_mag * Math.cos(nu), r_mag * Math.sin(nu), 0);
+        const v_fac = Math.sqrt(mu / p);
+        const v_pqw = new Vector3(-Math.sin(nu), e + Math.cos(nu), 0).scale(v_fac);
+        
+        // Rotations
+        const rotZ = (v, angle) => {
+          const c = Math.cos(angle), s = Math.sin(angle);
+          return new Vector3(v.x*c - v.y*s, v.x*s + v.y*c, v.z);
+        };
+        const rotX = (v, angle) => {
+          const c = Math.cos(angle), s = Math.sin(angle);
+          return new Vector3(v.x, v.y*c - v.z*s, v.y*s + v.z*c);
+        };
+        
+        let r = rotZ(r_pqw, w); r = rotX(r, i); r = rotZ(r, raan);
+        let v = rotZ(v_pqw, w); v = rotX(v, i); v = rotZ(v, raan);
+        
+        // Physics (Z-up) to Three (Y-up)
+        const toThree = (vec) => new Vector3(vec.x, vec.z, -vec.y);
+        
+        return { r: toThree(r), v: toThree(v) };
+      }
+      
+      function getElementsFromState(mu, r, v) {
+        // Three to Physics
+        const r_phy = new Vector3(r.x, -r.z, r.y);
+        const v_phy = new Vector3(v.x, -v.z, v.y);
+        
+        const r_mag = r_phy.mag();
+        const v_mag = v_phy.mag();
+        const h = r_phy.cross(v_phy);
+        const h_mag = h.mag();
+        const n = new Vector3(-h.y, h.x, 0);
+        const n_mag = n.mag();
+        
+        const term1 = r_phy.scale(v_mag*v_mag - mu/r_mag);
+        const term2 = v_phy.scale(r_phy.dot(v_phy));
+        const e_vec = term1.sub(term2).scale(1/mu);
+        const e = e_vec.mag();
+        const E = (v_mag*v_mag)/2 - mu/r_mag;
+        let a = -mu / (2 * E);
+        const i = Math.acos(h.z / h_mag) * R2D;
+        
+        let raan = 0;
+        if (n_mag > 1e-6) {
+          raan = Math.acos(n.x / n_mag) * R2D;
+          if (n.y < 0) raan = 360 - raan;
+        }
+        
+        let w = 0;
+        if (n_mag > 1e-6 && e > 1e-6) {
+          w = Math.acos(n.dot(e_vec) / (n_mag * e)) * R2D;
+          if (e_vec.z < 0) w = 360 - w;
+        } else if (n_mag <= 1e-6 && e > 1e-6) {
+          // equatorial: e_vec angle
+          w = Math.acos(e_vec.x / e) * R2D;
+          if(e_vec.y < 0) w = 360 - w;
+        }
+        
+        let nu = 0;
+        if (e > 1e-6) {
+          const val = e_vec.dot(r_phy) / (e * r_mag);
+          nu = Math.acos(Math.max(-1, Math.min(1, val))) * R2D;
+          if (r_phy.dot(v_phy) < 0) nu = 360 - nu;
+        }
+        
+        return { a, e, i, raan, w, nu };
+      }
+      
+      // --- Update Loop ---
+      
+      function updateVisualization() {
+        const mu = parseFloat(document.getElementById('in-mu').value);
+        const a = parseFloat(document.getElementById('in-a').value);
+        const e = parseFloat(document.getElementById('in-e').value);
+        const i = parseFloat(document.getElementById('in-i').value);
+        const raan = parseFloat(document.getElementById('in-raan').value);
+        const w = parseFloat(document.getElementById('in-w').value);
+        const nu = parseFloat(document.getElementById('in-nu').value);
+        
+        // 1. Orbit 1 State
+        const state1 = getStateFromElements(mu, a, e, i, raan, w, nu);
+        
+        // Update Spacecraft
+        spacecraft.position.set(state1.r.x, state1.r.y, state1.r.z);
+        const target = state1.r.add(state1.v);
+        spacecraft.lookAt(target.x, target.y, target.z); // Initially face velocity
+        
+        // Draw Orbit 1
+        generateOrbitPoints(orbit1Line, mu, a, e, i, raan, w);
+        updateApseLine(apseLine1, mu, a, e, i, raan, w);
+        
+        // 2. Calculate Bases for Delta-V Frames (Three.js coordinates)
+        const V_unit = state1.v.normalize();
+        const R_unit = state1.r.normalize();
+        const H_unit = state1.r.cross(state1.v).normalize(); // Binormal
+        
+        // Frame 1: NTW (Velocity)
+        // Tangent = V_unit, Binormal = H_unit, Normal = Binormal x Tangent
+        // Note: Prompt said "Normal (In-Plane)".
+        const T_vec = V_unit;
+        const B_vec = H_unit;
+        const N_vec = B_vec.cross(T_vec).normalize(); // Points inward to curvature center
+        
+        // Frame 2: RSW (Local Horizon)
+        // Radial = R_unit, OutOfPlane = H_unit, Horizontal = OutOfPlane x Radial
+        const Rad_vec = R_unit;
+        const OOP_vec = H_unit;
+        const Hor_vec = OOP_vec.cross(Rad_vec).normalize();
+        
+        // 3. Sync Inputs & Calculate Delta V
+        const deltaV = new Vector3(0,0,0);
+        
+        if (activeTab === 1) {
+          // Read Tab 1
+          const dv_t = parseFloat(document.getElementById('in-dv-pro').value);
+          const dv_n = parseFloat(document.getElementById('in-dv-norm').value);
+          const dv_b = parseFloat(document.getElementById('in-dv-bi').value);
+          
+          // Update active tab labels
+          document.getElementById('val-dv-pro').textContent = dv_t.toFixed(2);
+          document.getElementById('val-dv-norm').textContent = dv_n.toFixed(2);
+          document.getElementById('val-dv-bi').textContent = dv_b.toFixed(2);
+          
+          // Calc Vector
+          deltaV.x = T_vec.x*dv_t + N_vec.x*dv_n + B_vec.x*dv_b;
+          deltaV.y = T_vec.y*dv_t + N_vec.y*dv_n + B_vec.y*dv_b;
+          deltaV.z = T_vec.z*dv_t + N_vec.z*dv_n + B_vec.z*dv_b;
+          
+          // Update Tab 2 Sliders
+          const dv_rad = deltaV.dot(Rad_vec);
+          const dv_hor = deltaV.dot(Hor_vec);
+          const dv_oop = deltaV.dot(OOP_vec);
+          
+          // Set values without triggering events
+          setVal('dv-rad', dv_rad);
+          setVal('dv-hor', dv_hor);
+          setVal('dv-oop', dv_oop);
+          
+        } else {
+          // Read Tab 2
+          const dv_rad = parseFloat(document.getElementById('in-dv-rad').value);
+          const dv_hor = parseFloat(document.getElementById('in-dv-hor').value);
+          const dv_oop = parseFloat(document.getElementById('in-dv-oop').value);
+          
+          // Update active tab labels
+          document.getElementById('val-dv-rad').textContent = dv_rad.toFixed(2);
+          document.getElementById('val-dv-hor').textContent = dv_hor.toFixed(2);
+          document.getElementById('val-dv-oop').textContent = dv_oop.toFixed(2);
+          
+          // Calc Vector
+          deltaV.x = Rad_vec.x*dv_rad + Hor_vec.x*dv_hor + OOP_vec.x*dv_oop;
+          deltaV.y = Rad_vec.y*dv_rad + Hor_vec.y*dv_hor + OOP_vec.y*dv_oop;
+          deltaV.z = Rad_vec.z*dv_rad + Hor_vec.z*dv_hor + OOP_vec.z*dv_oop;
+          
+          // Update Tab 1 Sliders
+          const dv_t = deltaV.dot(T_vec);
+          const dv_n = deltaV.dot(N_vec);
+          const dv_b = deltaV.dot(B_vec);
+          
+          setVal('dv-pro', dv_t);
+          setVal('dv-norm', dv_n);
+          setVal('dv-bi', dv_b);
+        }
+        
+        // 4. Update Local Axes Orientation
+        // We want the arrows to align with the Active Frame's basis vectors
+        // But spacecraft is rotated. Easiest is to set arrow directions in World Space
+        // Spacecraft mesh is rotated, so if we add axes to it, they rotate with it.
+        // Better: detach axes from spacecraft rotation, or set their directions relative to spacecraft rotation.
+        // Easiest: Set directions in Local Space of the spacecraft.
+        // Inverse rotation of spacecraft:
+        const invRot = spacecraft.quaternion.clone().invert();
+        
+        let dirX, dirY, dirZ;
+        if (activeTab === 1) {
+          // X=T, Y=N, Z=B
+          dirX = new THREE.Vector3(T_vec.x, T_vec.y, T_vec.z);
+          dirY = new THREE.Vector3(N_vec.x, N_vec.y, N_vec.z);
+          dirZ = new THREE.Vector3(B_vec.x, B_vec.y, B_vec.z);
+        } else {
+          // X=Rad, Y=Hor, Z=OOP
+          dirX = new THREE.Vector3(Rad_vec.x, Rad_vec.y, Rad_vec.z);
+          dirY = new THREE.Vector3(Hor_vec.x, Hor_vec.y, Hor_vec.z);
+          dirZ = new THREE.Vector3(OOP_vec.x, OOP_vec.y, OOP_vec.z);
+        }
+        
+        // Apply inverse spacecraft rotation to get local direction
+        dirX.applyQuaternion(invRot);
+        dirY.applyQuaternion(invRot);
+        dirZ.applyQuaternion(invRot);
+        
+        axisX.setDirection(dirX);
+        axisY.setDirection(dirY);
+        axisZ.setDirection(dirZ);
+        
+        
+        // 5. Orbit 2 State
+        const v2 = state1.v.add(deltaV);
+        const els2 = getElementsFromState(mu, state1.r, v2);
+        
+        if (els2.a > 0 && els2.e < 1.0) {
+          generateOrbitPoints(orbit2Line, mu, els2.a, els2.e, els2.i, els2.raan, els2.w);
+          updateApseLine(apseLine2, mu, els2.a, els2.e, els2.i, els2.raan, els2.w);
+          orbit2Line.visible = true;
+          apseLine2.visible = true;
+          velArrow2.visible = true;
+        } else {
+          orbit2Line.visible = false; 
+          apseLine2.visible = false;
+          velArrow2.visible = false;
+        }
+        
+        // 6. Update Velocity Arrows
+        // Scale factor for velocity visualization
+        const vScale = 0.3;
+        
+        velArrow1.position.copy(state1.r);
+        velArrow1.setDirection(state1.v.clone().normalize());
+        velArrow1.setLength(state1.v.mag() * vScale);
+        
+        velArrow2.position.copy(state1.r);
+        velArrow2.setDirection(v2.clone().normalize());
+        velArrow2.setLength(v2.mag() * vScale);
+        
+        // 7. Readouts
+        updateLabels(state1.r, state1.v, v2);
+      }
+      
+      // --- Helper Functions ---
+      
+      function setVal(id, val) {
+        const el = document.getElementById('in-' + id);
+        if (el) el.value = val.toFixed(2);
+        const disp = document.getElementById('val-' + id);
+        if (disp) disp.textContent = val.toFixed(2);
+      }
+      
+      function generateOrbitPoints(lineObj, mu, a, e, i, raan, w) {
+        const points = [];
+        const segments = 100;
+        for (let j = 0; j <= segments; j++) {
+          const nu = (j / segments) * 360;
+          const state = getStateFromElements(mu, a, e, i, raan, w, nu);
+          points.push(new THREE.Vector3(state.r.x, state.r.y, state.r.z));
+        }
+        lineObj.geometry.setFromPoints(points);
+      }
+      
+      function updateApseLine(lineObj, mu, a, e, i, raan, w) {
+        const ptPeri = getStateFromElements(mu, a, e, i, raan, w, 0).r;
+        const points = [new THREE.Vector3(0,0,0), new THREE.Vector3(ptPeri.x, ptPeri.y, ptPeri.z)];
+        
+        // If elliptical, extend to apoapsis
+        if (e < 1.0) {
+          const ptApo = getStateFromElements(mu, a, e, i, raan, w, 180).r;
+          points.push(new THREE.Vector3(ptApo.x, ptApo.y, ptApo.z));
+        }
+        
+        // Re-center line logic: The points array draws O -> P -> A. 
+        // Better visual: Apo -> Peri passing through O? 
+        // Current: Origin -> Peri, and Origin -> Apo (via P? No).
+        // Line buffer expects sequence. 
+        // Let's just draw P -> A.
+        if (e < 1.0) {
+          const ptApo = getStateFromElements(mu, a, e, i, raan, w, 180).r;
+          lineObj.geometry.setFromPoints([
+            new THREE.Vector3(ptPeri.x, ptPeri.y, ptPeri.z),
+            new THREE.Vector3(ptApo.x, ptApo.y, ptApo.z)
+          ]);
+        } else {
+          // Just focus to periapsis
+          lineObj.geometry.setFromPoints([
+            new THREE.Vector3(0,0,0),
+            new THREE.Vector3(ptPeri.x, ptPeri.y, ptPeri.z)
+          ]);
+        }
+      }
+      
+      function updateLabels(r, v, v2) {
+        // Removed orbital element label updates since they are now inputs
+        
+        document.getElementById('out-r').textContent = `[${r.x.toFixed(2)}, ${r.y.toFixed(2)}, ${r.z.toFixed(2)}]`;
+        document.getElementById('out-rmag').textContent = `|r|: ${r.mag().toFixed(2)}`;
+        document.getElementById('out-v').textContent = `[${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)}]`;
+        document.getElementById('out-vmag').textContent = `|v|: ${v.mag().toFixed(2)}`;
+        
+        if (v2) {
+          document.getElementById('out-v2').textContent = `[${v2.x.toFixed(2)}, ${v2.y.toFixed(2)}, ${v2.z.toFixed(2)}]`;
+          document.getElementById('out-v2mag').textContent = `|v|: ${v2.mag().toFixed(2)}`;
+        }
+      }
+      
+      // --- Listeners ---
+      document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateVisualization);
+      });
+      
+      window.switchTab = function(tabId) {
+        activeTab = tabId;
+        if (tabId === 1) {
+          document.getElementById('tab-content-1').classList.remove('hidden');
+          document.getElementById('tab-content-2').classList.add('hidden');
+          document.getElementById('tab-btn-1').className = "flex-1 py-2 text-sm font-bold tab-active";
+          document.getElementById('tab-btn-2').className = "flex-1 py-2 text-sm font-bold tab-inactive";
+        } else {
+          document.getElementById('tab-content-1').classList.add('hidden');
+          document.getElementById('tab-content-2').classList.remove('hidden');
+          document.getElementById('tab-btn-1').className = "flex-1 py-2 text-sm font-bold tab-inactive";
+          document.getElementById('tab-btn-2').className = "flex-1 py-2 text-sm font-bold tab-active";
+        }
+        updateVisualization(); // Trigger redraw for Axes
+      }
+      
+      // --- Loop ---
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      
+      // Init
+      updateVisualization();
+      animate();
+      
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+      
+    </script>
+  </body>
+</html>

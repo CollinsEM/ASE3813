@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gravity Assist Visualizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style type="text/css">
+    body { margin: 0; overflow: hidden; background-color: #020617; color: #e2e8f0; font-family: monospace; }
+    canvas { display: block; }
+    
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    .slider-label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.25rem; color: #94a3b8; }
+    input[type=range] { width: 100%; accent-color: #38bdf8; cursor: pointer; }
+    input[type=number] {
+      background-color: #1e293b; border: 1px solid #334155; color: #f8fafc;
+      padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.875rem; width: 100%;
+    }
+    input[type=number]:focus { outline: none; border-color: #38bdf8; }
+    .panel { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(4px); border: 1px solid #334155; }
+    
+    .view-label {
+      position: absolute; 
+      padding: 0.5rem 1rem; background: rgba(0,0,0,0.7); 
+      border-radius: 9999px; font-weight: bold; font-size: 0.875rem;
+      pointer-events: none; border: 1px solid #334155;
+    }
+
+    #inset-container {
+      position: absolute; bottom: 1rem; left: 1rem; width: 300px; height: 300px;
+      /* Allow pointer events for scrolling zoom */
+      pointer-events: auto; 
+      border: 1px solid #475569; border-radius: 0.5rem;
+      background: rgba(15, 23, 42, 0.5);
+      cursor: ns-resize; /* Hint that scrolling works */
+    }
+    #inset-label {
+      position: absolute; bottom: 310px; left: 1rem;
+      color: #34d399; font-weight: bold; font-size: 0.75rem;
+      text-shadow: 0 1px 2px black;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main Canvas -->
+  <div id="canvas-container" class="absolute inset-0 z-0"></div>
+
+  <!-- Labels -->
+  <div class="view-label top-4 left-4 text-amber-400">Heliocentric Frame (Inertial)</div>
+  <div id="inset-label">Planet-Centric Frame (Scroll to Zoom)</div>
+  
+  <!-- Inset Border Helper (Visual + Event Target) -->
+  <div id="inset-container"></div>
+
+  <!-- Control Panel -->
+  <div class="absolute top-16 right-4 w-80 flex flex-col gap-4 max-h-[85vh] overflow-y-auto z-10">
+    
+    <div class="panel p-4 rounded-lg shadow-lg">
+      <h2 class="text-lg font-bold text-sky-400 mb-3 border-b border-slate-700 pb-2">Flyby Parameters</h2>
+      
+      <!-- Planet V -->
+      <div class="mb-4">
+        <div class="slider-label"><span>Planet Orbital Vel (km/s)</span><span id="val-vp"></span></div>
+        <input type="range" id="in-vp" min="10" max="40" step="0.5" value="30">
+      </div>
+
+      <!-- V infinity -->
+      <div class="mb-4">
+        <div class="slider-label"><span>V-Infinity (km/s)</span><span id="val-vinf"></span></div>
+        <input type="range" id="in-vinf" min="1" max="15" step="0.1" value="8">
+      </div>
+
+      <!-- Approach Angle -->
+      <div class="mb-4">
+        <div class="slider-label"><span>Approach Angle (deg)</span><span id="val-ang"></span></div>
+        <input type="range" id="in-ang" min="0" max="180" step="1" value="20">
+        <div class="text-[10px] text-slate-500 mt-1">0 = Catching up (Tangential), 180 = Head on</div>
+      </div>
+
+      <!-- Periapsis -->
+      <div class="mb-4">
+        <div class="slider-label"><span>Periapsis Altitude (km)</span><span id="val-rp"></span></div>
+        <input type="range" id="in-rp" min="500" max="50000" step="100" value="2000">
+      </div>
+
+      <!-- Side Toggle -->
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs text-slate-400">Flyby Side</span>
+        <button id="btn-side" class="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-white border border-slate-600 transition" onclick="toggleSide()">Trailing (Gain Energy)</button>
+      </div>
+
+    </div>
+
+    <!-- Readouts -->
+    <div class="panel p-4 rounded-lg shadow-lg text-xs font-mono">
+      <h2 class="text-lg font-bold text-indigo-400 mb-3 border-b border-slate-700 pb-2">Maneuver Data</h2>
+      
+      <div class="grid grid-cols-2 gap-4 mb-2">
+        <div>
+          <div class="text-slate-500">Turn Angle (&delta;)</div>
+          <div id="out-turn" class="text-white text-lg font-bold">0&deg;</div>
+        </div>
+        <div>
+          <div class="text-slate-500">Impact Param (b)</div>
+          <div id="out-b" class="text-white text-lg">0.00 km</div>
+        </div>
+        <div>
+          <div class="text-slate-500">Eccentricity (e)</div>
+          <div id="out-e" class="text-white text-lg">0.00</div>
+        </div>
+      </div>
+
+      <div class="space-y-2 border-t border-slate-700 pt-2">
+        <div class="flex justify-between">
+          <span class="text-sky-300">V_in (Helio)</span>
+          <span id="out-vin" class="text-white font-bold">0.0 km/s</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-rose-300">V_out (Helio)</span>
+          <span id="out-vout" class="text-white font-bold">0.0 km/s</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-emerald-400">&Delta;V (Helio)</span>
+          <span id="out-dv" class="text-emerald-400 font-bold">0.0 km/s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // --- Configuration ---
+    const MU_EARTH = 398600; 
+    const RE_EARTH = 6371; 
+    let flybySide = -1; // -1 = Trailing (Gain), 1 = Leading (Lose)
+    const INSET_SIZE = 300; 
+    let insetDistance = 100000; // State for independent zoom
+
+    // --- Scene Setup ---
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.autoClear = false;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    // 1. Planet-Centric Scene (Inset)
+    const sceneP = new THREE.Scene();
+    sceneP.background = new THREE.Color(0x0f172a);
+    const cameraP = new THREE.PerspectiveCamera(45, 1, 100, 2000000);
+    cameraP.position.set(0, 50000, 100000); // Initial pos
+    
+    // 2. Heliocentric Scene (Main)
+    const sceneH = new THREE.Scene();
+    sceneH.background = new THREE.Color(0x020617);
+    const cameraH = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    cameraH.position.set(0, 60, 60);
+    cameraH.lookAt(0,0,0);
+    
+    const controlsH = new OrbitControls(cameraH, renderer.domElement);
+    controlsH.enableDamping = true;
+
+    // --- Objects: Planet View ---
+    
+    // Planet
+    const planetGeo = new THREE.SphereGeometry(RE_EARTH, 32, 32);
+    const planetMat = new THREE.MeshBasicMaterial({ color: 0x34d399, wireframe: true, transparent:true, opacity:0.3 });
+    const planetMesh = new THREE.Mesh(planetGeo, planetMat);
+    const planetCore = new THREE.Mesh(new THREE.SphereGeometry(RE_EARTH*0.95, 32, 32), new THREE.MeshBasicMaterial({ color: 0x064e3b }));
+    planetMesh.add(planetCore);
+    sceneP.add(planetMesh);
+
+    // Hyperbola Line
+    const hyperMat = new THREE.LineBasicMaterial({ color: 0xfacc15, linewidth: 2 });
+    const hyperLine = new THREE.Line(new THREE.BufferGeometry(), hyperMat);
+    sceneP.add(hyperLine);
+
+    // Asymptotes
+    const asymInMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.6, dashSize: 10000, gapSize: 2000 });
+    const asymOutMat = new THREE.LineBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.6, dashSize: 10000, gapSize: 2000 });
+    
+    const asymInLine = new THREE.Line(new THREE.BufferGeometry(), asymInMat);
+    const asymOutLine = new THREE.Line(new THREE.BufferGeometry(), asymOutMat);
+    sceneP.add(asymInLine);
+    sceneP.add(asymOutLine);
+
+    // V_inf direction indicators (small arrows at origin)
+    const arrowHelperIn = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 10000, 0x38bdf8);
+    const arrowHelperOut = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 10000, 0xf43f5e);
+    sceneP.add(arrowHelperIn);
+    sceneP.add(arrowHelperOut);
+
+    // Planet Velocity Vector
+    const arrowHelperVp = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 15000, 0xffffff);
+    sceneP.add(arrowHelperVp);
+
+    // --- Objects: Helio View ---
+
+    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), new THREE.MeshBasicMaterial({ color: 0xfdba74 }));
+    sceneH.add(sunMesh);
+
+    const orbPlanetMat = new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.3 });
+    const orbPlanetLine = new THREE.LineLoop(new THREE.BufferGeometry(), orbPlanetMat);
+    sceneH.add(orbPlanetLine);
+
+    const planetMark = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16), new THREE.MeshBasicMaterial({ color: 0x34d399 }));
+    sceneH.add(planetMark);
+
+    const orbInMat = new THREE.LineBasicMaterial({ color: 0x38bdf8 });
+    const orbInLine = new THREE.LineLoop(new THREE.BufferGeometry(), orbInMat);
+    sceneH.add(orbInLine);
+
+    const orbOutMat = new THREE.LineBasicMaterial({ color: 0xf43f5e });
+    const orbOutLine = new THREE.LineLoop(new THREE.BufferGeometry(), orbOutMat);
+    sceneH.add(orbOutLine);
+    
+    const gridH = new THREE.GridHelper(100, 50, 0x1e293b, 0x0f172a);
+    sceneH.add(gridH);
+
+
+    // --- Math & Logic ---
+
+    const D2R = Math.PI / 180;
+    
+    function updatePhysics() {
+      // Inputs
+      const Vp = parseFloat(document.getElementById('in-vp').value);
+      const Vinf = parseFloat(document.getElementById('in-vinf').value);
+      const Rp_alt = parseFloat(document.getElementById('in-rp').value);
+      const angleIn = parseFloat(document.getElementById('in-ang').value) * D2R;
+
+      // Derived
+      const Rp = RE_EARTH + Rp_alt;
+      
+      // Hyperbolic Geometry
+      const e = 1 + (Rp * Vinf * Vinf) / MU_EARTH;
+      const delta = 2 * Math.asin(1/e);
+      const a = -MU_EARTH / (Vinf * Vinf); 
+      const beta = Math.acos(-1/e);
+      
+      // Impact Parameter b
+      // b = |a| * sqrt(e^2 - 1)
+      const b = Math.abs(a) * Math.sqrt(e * e - 1);
+
+      // 2. Planet Frame Vectors
+      const vecVp = new THREE.Vector3(Vp, 0, 0);
+
+      // V_inf_in direction
+      const dirVinf_In = new THREE.Vector3(Math.cos(angleIn), 0, Math.sin(angleIn));
+      const vecVinf_In = dirVinf_In.clone().multiplyScalar(Vinf);
+      
+      // V_inf_out direction
+      // flybySide: -1 = Right Turn (Trailing), 1 = Left Turn (Leading)
+      const angleOut = angleIn + (flybySide * delta);
+      const dirVinf_Out = new THREE.Vector3(Math.cos(angleOut), 0, Math.sin(angleOut));
+      const vecVinf_Out = dirVinf_Out.clone().multiplyScalar(Vinf);
+
+      // 3. Heliocentric Velocities
+      const vecVsc_In = new THREE.Vector3().addVectors(vecVp, vecVinf_In);
+      const vecVsc_Out = new THREE.Vector3().addVectors(vecVp, vecVinf_Out);
+
+      // --- Visualization Updates ---
+
+      // A. Planet View (Scale: km)
+      
+      // 1. Hyperbola Mesh
+      const p = a * (1 - e * e);
+      const ptsHyp = [];
+      const limit = beta * 0.98; 
+      for(let th = -limit; th <= limit; th += 0.02) {
+        const r = p / (1 + e * Math.cos(th));
+        const x = r * Math.cos(th);
+        const y = r * Math.sin(th);
+        ptsHyp.push(new THREE.Vector3(x, 0, y));
+      }
+      hyperLine.geometry.setFromPoints(ptsHyp);
+      // Rotation: Center is along bisector. Bisector is angleIn + side*delta/2.
+      hyperLine.rotation.y = angleIn + (flybySide * delta / 2);
+      
+      // 2. Asymptote Lines with Offset
+      const lineLen = 300000;
+      
+      // Incoming Asymptote (Blue)
+      // Parallel to V_inf_In, Offset by b.
+      // Offset direction?
+      // Gravity pulls object IN towards focus.
+      // Trajectory is "inside" the asymptotes.
+      // The asymptotes are "outside" the bend.
+      // Cross product Up x V_in gives a vector to the "Left" (if looking along V_in).
+      // If we turn Left (flybySide = 1), the Asymptote should be on the Right.
+      // Offset = (Up x V_in) * (-1 * flybySide)? 
+      // Let's verify:
+      // Side -1 (Turn Right): Need Asymptote on Left. Up x V = Left. Offset = +Left.
+      // Side 1 (Turn Left): Need Asymptote on Right. Up x V = Left. Offset = -Left.
+      // So Offset Dir = (Up x V_in) * (-flybySide)
+      const up = new THREE.Vector3(0,1,0);
+      
+      // Incoming Offset
+      const offInDir = new THREE.Vector3().crossVectors(up, dirVinf_In).normalize();
+      const offsetIn = offInDir.clone().multiplyScalar(-flybySide * b);
+      
+      // Incoming Line points towards planet (along V_inf). 
+      // Start: Far out - V_in * len. End: 0 + V_in * len (pass through).
+      // Shifted by offsetIn.
+      const ptInStart = dirVinf_In.clone().multiplyScalar(-lineLen).add(offsetIn);
+      const ptInEnd   = dirVinf_In.clone().multiplyScalar(lineLen).add(offsetIn);
+      asymInLine.geometry.setFromPoints([ptInStart, ptInEnd]);
+
+      // Outgoing Asymptote (Red)
+      // Parallel to V_inf_Out.
+      // Outgoing Offset
+      const offOutDir = new THREE.Vector3().crossVectors(up, dirVinf_Out).normalize();
+      const offsetOut = offOutDir.clone().multiplyScalar(-flybySide * b);
+      
+      const ptOutStart = dirVinf_Out.clone().multiplyScalar(-lineLen).add(offsetOut);
+      const ptOutEnd   = dirVinf_Out.clone().multiplyScalar(lineLen).add(offsetOut);
+      asymOutLine.geometry.setFromPoints([ptOutStart, ptOutEnd]);
+
+      // V_inf Direction Arrows (at origin for reference)
+      arrowHelperIn.setDirection(dirVinf_In);
+      arrowHelperIn.setLength(20000);
+      arrowHelperOut.setDirection(dirVinf_Out);
+      arrowHelperOut.setLength(20000);
+
+      arrowHelperVp.setDirection(new THREE.Vector3(1,0,0)); // Planet moving +X
+      
+      // B. Helio View Update
+      const R_HELIO = 20;
+      generateCircle(orbPlanetLine, R_HELIO);
+      planetMark.position.set(R_HELIO, 0, 0);
+
+      const mu_sun_visual = 1000; 
+      const v_circ_visual = Math.sqrt(mu_sun_visual / R_HELIO);
+      const scaleVel = v_circ_visual / Vp; 
+
+      const vScIn_visual = vecVsc_In.clone().multiplyScalar(scaleVel);
+      const vScOut_visual = vecVsc_Out.clone().multiplyScalar(scaleVel);
+
+      // Map Planet Frame (X along Vp, Z perp) to Helio Frame (X along Radial? No. -Z along Vp)
+      // Helio Planet Pos = (R, 0, 0).
+      // Helio Planet Vel = (0, 0, -V) (if CW) or (0, 0, V) if CCW.
+      // Let's match Grid: XZ plane.
+      // If Planet at +X (R,0,0), for CCW orbit, Velocity is along -Z.
+      // So PlanetFrame X -> HelioFrame -Z.
+      // PlanetFrame Z -> HelioFrame +X.
+      const mapToHelio = (v2d) => {
+        return new THREE.Vector3(v2d.z, 0, -v2d.x);
+      };
+
+      const posP_helio = new THREE.Vector3(R_HELIO, 0, 0); 
+      const vIn_H = mapToHelio(vScIn_visual);
+      const vOut_H = mapToHelio(vScOut_visual);
+
+      drawOrbit(orbInLine, mu_sun_visual, posP_helio, vIn_H);
+      drawOrbit(orbOutLine, mu_sun_visual, posP_helio, vOut_H);
+
+      // --- UI Updates ---
+      document.getElementById('val-vp').innerText = Vp.toFixed(1);
+      document.getElementById('val-vinf').innerText = Vinf.toFixed(1);
+      document.getElementById('val-ang').innerText = (angleIn/D2R).toFixed(0);
+      document.getElementById('val-rp').innerText = Rp_alt.toFixed(0);
+
+      document.getElementById('out-turn').innerText = (delta/D2R).toFixed(1) + " deg";
+      document.getElementById('out-b').innerText = b.toFixed(0) + " km";
+      document.getElementById('out-e').innerText = e.toFixed(2);
+      document.getElementById('out-vin').innerText = vecVsc_In.length().toFixed(2) + " km/s";
+      document.getElementById('out-vout').innerText = vecVsc_Out.length().toFixed(2) + " km/s";
+      document.getElementById('out-dv').innerText = (vecVsc_Out.length() - vecVsc_In.length()).toFixed(2) + " km/s";
+    }
+
+    // Independent Zoom Handler
+    const insetDiv = document.getElementById('inset-container');
+    insetDiv.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      // Zoom logic: Scale distance
+      const zoomSpeed = 0.001;
+      insetDistance += e.deltaY * zoomSpeed * insetDistance;
+      // Clamp
+      insetDistance = Math.max(10000, Math.min(insetDistance, 1000000));
+    });
+
+    function generateCircle(line, r) {
+      const pts = [];
+      for(let i=0; i<=64; i++) {
+        const t = (i/64)*Math.PI*2;
+        pts.push(new THREE.Vector3(Math.cos(t)*r, 0, Math.sin(t)*r));
+      }
+      line.geometry.setFromPoints(pts);
+    }
+
+    function drawOrbit(line, mu, rVec, vVec) {
+      const r = rVec.length();
+      const v = vVec.length();
+      const hVec = new THREE.Vector3().crossVectors(rVec, vVec);
+      const ev = new THREE.Vector3().copy(rVec).multiplyScalar(v*v - mu/r).sub( new THREE.Vector3().copy(vVec).multiplyScalar(rVec.dot(vVec)) ).divideScalar(mu);
+      const e = ev.length();
+      const a = 1 / (2/r - v*v/mu);
+
+      const pts = [];
+      if (a > 0 && e < 1) {
+        const p = a * (1 - e*e);
+        const P = ev.clone().normalize();
+        const W = hVec.clone().normalize();
+        const Q = new THREE.Vector3().crossVectors(W, P);
+
+        for(let i=0; i<=100; i++) {
+          const nu = (i/100) * 2 * Math.PI;
+          const rad = p / (1 + e * Math.cos(nu));
+          const pos = new THREE.Vector3()
+            .addScaledVector(P, rad * Math.cos(nu))
+            .addScaledVector(Q, rad * Math.sin(nu));
+          pts.push(pos);
+        }
+      } else {
+        pts.push(rVec);
+        pts.push(rVec.clone().add(vVec)); 
+      }
+      line.geometry.setFromPoints(pts);
+    }
+
+    window.toggleSide = () => {
+      flybySide *= -1;
+      const btn = document.getElementById('btn-side');
+      if(flybySide === -1) {
+        btn.innerText = "Trailing (Gain Energy)";
+        btn.classList.add('bg-slate-700'); btn.classList.remove('bg-rose-700');
+      } else {
+        btn.innerText = "Leading (Lose Energy)";
+        btn.classList.remove('bg-slate-700'); btn.classList.add('bg-rose-700');
+      }
+      updatePhysics();
+    };
+
+    document.querySelectorAll('input').forEach(el => {
+      el.addEventListener('input', updatePhysics);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // Update Main Controls
+      controlsH.update();
+
+      // Sync Camera Orientation (Main drives Inset)
+      // We calculate the direction vector from target (0,0,0) to main camera
+      // Then apply that direction to inset camera with independent distance
+      const mainDir = new THREE.Vector3().subVectors(cameraH.position, controlsH.target).normalize();
+      
+      cameraP.position.copy(mainDir).multiplyScalar(insetDistance);
+      cameraP.up.copy(cameraH.up);
+      cameraP.lookAt(0,0,0);
+
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      // 1. Render Heliocentric (Main)
+      renderer.setViewport(0, 0, width, height);
+      renderer.setScissor(0, 0, width, height);
+      renderer.setScissorTest(false);
+      renderer.setClearColor(0x020617);
+      renderer.clear();
+      renderer.render(sceneH, cameraH);
+
+      // 2. Render Planet-Centric (Inset)
+      const pxRatio = window.devicePixelRatio;
+      const margin = 16;
+      const size = INSET_SIZE;
+      
+      renderer.setScissor(margin * pxRatio, margin * pxRatio, size * pxRatio, size * pxRatio);
+      renderer.setViewport(margin * pxRatio, margin * pxRatio, size * pxRatio, size * pxRatio);
+      renderer.setScissorTest(true);
+      renderer.clearDepth(); 
+      renderer.render(sceneP, cameraP);
+    }
+
+    // Init
+    updatePhysics();
+    animate();
+
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      renderer.setSize(w, h);
+      cameraH.aspect = w / h;
+      cameraH.updateProjectionMatrix();
+      cameraP.aspect = 1.0;
+      cameraP.updateProjectionMatrix();
+      updatePhysics();
+    });
+  </script>
+</body>
+</html>
